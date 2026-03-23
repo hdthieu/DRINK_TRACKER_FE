@@ -2,40 +2,35 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import Cookies from "js-cookie";
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [authorized, setAuthorized] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("coffee_token");
-    const publicPaths = ["/login", "/verify"];
+    const checkAuth = () => {
+      // Lấy chìa khóa từ Cookies
+      const token = Cookies.get("coffee_token");
+      const publicPaths = ["/login", "/verify", "/register"];
+      const isPublicPath = publicPaths.includes(pathname);
 
-    if (!token) {
-      if (!publicPaths.includes(pathname)) {
+      if (!token && !isPublicPath) {
+        setAuthorized(false);
         router.push("/login");
       } else {
-        setIsAuthorized(true);
+        setAuthorized(true);
       }
-    } else {
-      if (publicPaths.includes(pathname)) {
-        router.push("/");
-      } else {
-        setIsAuthorized(true);
-      }
-    }
+    };
+
+    checkAuth();
   }, [pathname, router]);
 
-  if (!isAuthorized) {
+  if (!authorized && !["/login", "/verify"].includes(pathname)) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#fff5f7] font-['Quicksand']">
-        <div className="text-center space-y-4">
-          <div className="w-16 h-16 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mx-auto"></div>
-          <p className="text-pink-400 font-bold">
-            Đợi Princess một xíu nhé... 🌸
-          </p>
-        </div>
+      <div className="min-h-screen flex items-center justify-center text-pink-300 font-bold">
+        Đang kiểm tra...
       </div>
     );
   }

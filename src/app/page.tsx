@@ -1,232 +1,1025 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Coffee,
-  Heart,
   Plus,
+  User as UserIcon,
+  Heart,
   Droplets,
   Zap,
-  User,
-  BarChart2,
+  LogOut,
+  X,
+  Scale,
   Settings,
+  Mail,
+  Coffee,
+  Camera,
+  Save,
+  Edit2,
+  LayoutDashboard,
+  BookOpen,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react";
+import { toast } from "sonner";
+import Cookies from "js-cookie";
+import { useRouter } from "next/navigation";
+import api from "@/lib/api";
 
-export default function Home() {
-  const [caffeine, setCaffeine] = useState(120);
-  const limit = 400;
-  const percentage = Math.min((caffeine / limit) * 100, 100);
+/* ─── Types ──────────────────────────────────────────────── */
+interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  dailyCaffeineLimit: number;
+  dailySugarLimit: number;
+  weight: number;
+  imageUrl?: string;
+  logs: DrinkLog[];
+}
+interface DrinkLog {
+  id: string;
+  drinkName: string;
+  caffeineAmount: number;
+  sugarAmount?: number;
+  createdAt: string;
+}
 
-  const recentLogs = [
-    {
-      id: 1,
-      name: "White Coffee",
-      time: "08:30 AM",
-      caffeine: 80,
-      sugar: 12,
-      kcal: 150,
-      rating: 5,
-      icon: "☕",
-    },
-    {
-      id: 2,
-      name: "Latte Art",
-      time: "10:15 AM",
-      caffeine: 40,
-      sugar: 5,
-      kcal: 120,
-      rating: 4,
-      icon: "🎨",
-    },
-  ];
-
+/* ─── SVG Ring Progress ──────────────────────────────────── */
+function RingProgress({
+  value,
+  max,
+  color,
+  emoji,
+  label,
+  unit,
+}: {
+  value: number;
+  max: number;
+  color: string;
+  emoji: string;
+  label: string;
+  unit: string;
+}) {
+  const R = 44;
+  const circ = 2 * Math.PI * R;
+  const pct = max > 0 ? Math.min(value / max, 1) : 0;
+  const offset = circ * (1 - pct);
   return (
-    <main className="min-h-screen pb-24 font-['Quicksand'] bg-transparent">
-      {/* Header Area */}
-      <header className="px-6 pt-12 pb-8 flex justify-between items-center sticky top-0 z-10">
-        <div>
-          <h2 className="text-pink-400 font-bold text-xs uppercase tracking-widest bg-white/40 px-3 py-1 rounded-full w-fit backdrop-blur-sm">
-            Chào buổi sáng
-          </h2>
-          <h1 className="text-3xl font-black text-amber-900 flex items-center gap-2 mt-2">
-            {/* Hello, Princess!{" "} */}
-            <Heart className="fill-pink-500 text-pink-500 w-6 h-6 animate-pulse" />
-          </h1>
+    <div className="clay-card p-5 flex flex-col items-center gap-3 cursor-pointer group">
+      <div className="relative w-28 h-28">
+        <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
+          <circle cx="50" cy="50" r={R} className="progress-ring-track" />
+          <circle
+            cx="50"
+            cy="50"
+            r={R}
+            className="progress-ring-fill"
+            stroke={color}
+            strokeDasharray={circ}
+            strokeDashoffset={offset}
+          />
+        </svg>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-2xl">{emoji}</span>
+          <span
+            className="text-xs font-bold mt-0.5"
+            style={{ color: "var(--brown-light)" }}
+          >
+            {Math.round(pct * 100)}%
+          </span>
         </div>
-        <div className="w-14 h-14 rounded-2xl bg-white shadow-xl flex items-center justify-center text-pink-400 border-2 border-pink-50">
-          <User size={28} />
-        </div>
-      </header>
+      </div>
+      <div className="text-center space-y-0.5">
+        <p
+          className="text-[11px] font-bold uppercase tracking-widest"
+          style={{ color: "var(--brown-muted)" }}
+        >
+          {label}
+        </p>
+        <p className="text-base font-bold" style={{ color: "var(--brown)" }}>
+          {value}
+          <span
+            className="text-xs ml-1"
+            style={{ color: "var(--brown-light)" }}
+          >
+            / {max} {unit}
+          </span>
+        </p>
+      </div>
+    </div>
+  );
+}
 
-      <div className="app-container px-6 space-y-10 mt-4">
-        {/* Caffeine Tracker Card - ULTRA CONTRAST */}
-        <section className="flex flex-col items-center">
-          <div className="cute-card w-full p-10 flex flex-col items-center">
-            <div className="relative w-60 h-60 flex items-center justify-center">
-              <svg className="w-full h-full transform -rotate-90">
-                <circle
-                  cx="120"
-                  cy="120"
-                  r="105"
-                  stroke="currentColor"
-                  strokeWidth="16"
-                  fill="transparent"
-                  className="text-pink-50/50"
-                />
-                <motion.circle
-                  cx="120"
-                  cy="120"
-                  r="105"
-                  stroke="currentColor"
-                  strokeWidth="16"
-                  strokeDasharray={2 * Math.PI * 105}
-                  initial={{ strokeDashoffset: 2 * Math.PI * 105 }}
-                  animate={{
-                    strokeDashoffset:
-                      2 * Math.PI * 105 * (1 - percentage / 100),
-                  }}
-                  fill="transparent"
-                  strokeLinecap="round"
-                  className="text-pink-400"
-                />
-              </svg>
-              <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-7xl font-black text-amber-900 tracking-tighter drop-shadow-sm">
-                  {caffeine}
-                </span>
-                <span className="text-[10px] font-black text-pink-400 uppercase tracking-[0.2em] mt-1">
-                  mg Caffeine
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-3 gap-8 mt-12 w-full">
-              <div className="flex flex-col items-center gap-2">
-                <div className="p-4 bg-blue-50/50 text-blue-500 rounded-3xl shadow-sm">
-                  <Droplets size={24} />
-                </div>
-                <span className="text-[10px] font-black text-blue-600 uppercase tracking-tighter">
-                  17g Sugar
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-2">
-                <div className="p-4 bg-orange-50/50 text-orange-500 rounded-3xl shadow-sm">
-                  <Zap size={24} />
-                </div>
-                <span className="text-[10px] font-black text-orange-600 uppercase tracking-tighter">
-                  270 Kcal
-                </span>
-              </div>
-              <div className="flex flex-col items-center gap-2">
-                <div className="p-4 bg-rose-50/50 text-rose-500 rounded-3xl shadow-sm">
-                  <Heart size={24} />
-                </div>
-                <span className="text-[10px] font-black text-rose-600 uppercase tracking-tighter">
-                  98 BPM
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Quick Add Section */}
-        <section className="space-y-6">
-          <div className="flex justify-between items-center px-2">
-            <h3 className="text-xl font-black text-amber-900 uppercase tracking-tight">
-              Đồ uống ưa thích
-            </h3>
-            <div className="h-1 flex-1 mx-4 bg-pink-100/50 rounded-full" />
-            <button className="bg-white text-pink-400 p-2.5 rounded-2xl shadow-lg border-2 border-pink-50 active:scale-90 transition-transform">
-              <Plus size={24} />
-            </button>
-          </div>
-          <div className="flex gap-5 overflow-x-auto pb-8 pt-2 scrollbar-hide px-2">
-            {[
-              { name: "Cappuccino", icon: "☕", c: 65, color: "bg-orange-50" },
-              { name: "Matcha", icon: "🍵", c: 35, color: "bg-emerald-50" },
-              { name: "Iced Tea", icon: "🥤", c: 25, color: "bg-blue-50" },
-              { name: "Latte", icon: "🥛", c: 45, color: "bg-rose-50" },
-            ].map((drink) => (
-              <motion.button
-                key={drink.name}
-                whileHover={{ scale: 1.08, y: -5 }}
-                whileTap={{ scale: 0.95 }}
-                className="flex-shrink-0 w-36 h-48 bg-white shadow-xl rounded-[3rem] flex flex-col items-center justify-between p-6 border-4 border-white hover:border-pink-100 transition-all font-sans"
-                onClick={() => setCaffeine((prev) => prev + drink.c)}
-              >
-                <div
-                  className={`w-20 h-20 ${drink.color} rounded-3xl flex items-center justify-center text-4xl shadow-inner`}
-                >
-                  {drink.icon}
-                </div>
-                <div className="flex flex-col items-center">
-                  <span className="text-[11px] font-black text-amber-900 uppercase tracking-tight">
-                    {drink.name}
-                  </span>
-                  <span className="text-[9px] font-bold text-pink-300 mt-1">
-                    +{drink.c}mg
-                  </span>
-                </div>
-              </motion.button>
-            ))}
-          </div>
-        </section>
-
-        {/* Recent History */}
-        <section className="space-y-6 pb-20">
-          <h3 className="text-2xl font-black text-amber-900 pl-2">
-            Khoảnh khắc Cà phê
-          </h3>
-          <div className="space-y-6">
-            {recentLogs.map((log) => (
-              <motion.div
-                key={log.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="cute-card p-6 flex items-center gap-6 border-l-[14px] border-l-pink-400 shadow-2xl shadow-pink-100/50"
-              >
-                <div className="text-4xl bg-stone-50 w-22 h-22 rounded-[2rem] flex items-center justify-center shadow-inner border-2 border-white">
-                  {log.icon}
-                </div>
-                <div className="flex-1">
-                  <h4 className="text-xl font-black text-amber-900 tracking-tight">
-                    {log.name}
-                  </h4>
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.15em] mt-1">
-                    {log.time} • {log.caffeine}mg Caffeine
-                  </p>
-                </div>
-                <div className="flex flex-col items-center gap-1 bg-pink-50/50 p-3 rounded-3xl border-2 border-white shadow-sm">
-                  <span className="text-sm font-black text-pink-500">
-                    {log.rating}.0
-                  </span>
-                  <Heart className="fill-pink-500 text-pink-500" size={16} />
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </section>
+/* ─── Polaroid Drink Card ────────────────────────────────── */
+function DrinkCard({ log }: { log: DrinkLog }) {
+  const t = new Date(log.createdAt).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="clay-card-sm p-4 flex items-center justify-between gap-4 group"
+    >
+      {/* Polaroid photo frame */}
+      <div
+        className="w-14 h-14 rounded-[18px] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-200"
+        style={{
+          background: "rgba(255,209,220,0.30)",
+          border: "3px solid rgba(255,255,255,0.8)",
+        }}
+      >
+        <Coffee
+          size={22}
+          strokeWidth={1.8}
+          style={{ color: "var(--peach-deep)" }}
+        />
       </div>
 
-      {/* Navigation Bar - PREMIUM FLOATING */}
-      <nav className="fixed bottom-8 left-8 right-8 h-22 bg-white/95 backdrop-blur-2xl border-4 border-white rounded-[3rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] flex items-center justify-around px-6 z-50">
-        <button className="p-4 text-pink-400 hover:bg-pink-50 rounded-3xl transition-all active:scale-90">
-          <BarChart2 size={30} />
-        </button>
-        <div className="relative">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="w-20 h-20 bg-pink-400 text-white rounded-[2rem] shadow-2xl shadow-pink-300 -mt-16 border-8 border-white flex items-center justify-center transition-all"
-          >
-            <Plus size={40} strokeWidth={3} />
-          </motion.button>
+      <div className="flex-1 min-w-0">
+        <h4
+          className="font-bold text-base leading-tight truncate"
+          style={{ color: "var(--brown)" }}
+        >
+          {log.drinkName}
+        </h4>
+        <p
+          className="text-[11px] font-medium mt-0.5"
+          style={{ color: "var(--brown-muted)" }}
+        >
+          🕐 {t}
+        </p>
+      </div>
+
+      <div className="text-right shrink-0">
+        <p
+          className="font-bold text-base"
+          style={{ color: "var(--peach-deep)" }}
+        >
+          +{log.caffeineAmount}
+          <span className="text-[10px] ml-0.5">mg</span>
+        </p>
+        {log.sugarAmount != null && (
+          <p className="text-[10px]" style={{ color: "var(--brown-muted)" }}>
+            🍬 {log.sugarAmount}g
+          </p>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+/* ─── Empty State ────────────────────────────────────────── */
+function EmptyLog() {
+  return (
+    <div
+      className="p-12 text-center rounded-[2rem] border-2 border-dashed space-y-4"
+      style={{
+        borderColor: "var(--latte)",
+        background: "rgba(255,245,225,0.6)",
+      }}
+    >
+      <div
+        className="w-20 h-20 rounded-[1.5rem] flex items-center justify-center mx-auto pulse-gentle"
+        style={{ background: "rgba(255,209,220,0.25)" }}
+      >
+        <Coffee
+          size={36}
+          strokeWidth={1.2}
+          style={{ color: "var(--peach-deep)" }}
+        />
+      </div>
+      <div className="space-y-1">
+        <p
+          className="font-bold text-base"
+          style={{ color: "var(--brown-light)" }}
+        >
+          Chưa có gì hôm nay~ ☕
+        </p>
+        <p className="text-xs" style={{ color: "var(--brown-muted)" }}>
+          Thêm đồ uống đầu tiên của bạn nhé!
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── PC Sidebar ─────────────────────────────────────────── */
+function Sidebar({
+  user,
+  onProfile,
+  onLogout,
+}: {
+  user: UserProfile | null;
+  onProfile: () => void;
+  onLogout: () => void;
+}) {
+  const navItems = [
+    { icon: LayoutDashboard, label: "Dashboard", active: true },
+    { icon: BookOpen, label: "Nhật ký", active: false },
+    { icon: Sparkles, label: "Gợi ý", active: false },
+  ];
+  return (
+    <aside className="sidebar">
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-2 mb-6">
+        <div
+          className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow-sm"
+          style={{ background: "rgba(255,209,220,0.50)" }}
+        >
+          ☕
         </div>
-        <button className="p-4 text-gray-300 hover:bg-gray-50 rounded-3xl transition-all active:scale-90">
-          <Settings size={30} />
-        </button>
+        <div>
+          <p
+            className="font-bold text-sm leading-tight"
+            style={{ color: "var(--brown)" }}
+          >
+            Coffee Sweetie
+          </p>
+          <p className="text-[10px]" style={{ color: "var(--brown-muted)" }}>
+            Tracker 🌸
+          </p>
+        </div>
+      </div>
+
+      {/* Nav */}
+      <nav className="flex flex-col gap-1 flex-1">
+        {navItems.map((n) => (
+          <button
+            key={n.label}
+            className={`sidebar-item ${n.active ? "active" : ""}`}
+          >
+            <n.icon size={18} strokeWidth={1.8} />
+            {n.label}
+          </button>
+        ))}
       </nav>
-    </main>
+
+      {/* Quick-Add button */}
+      <button
+        className="btn-primary mt-auto"
+        style={{ height: "3rem" }}
+        onClick={() => toast.info("✨ Quick Add – coming soon!")}
+      >
+        <Plus size={18} /> Thêm đồ uống
+      </button>
+
+      {/* User chip */}
+      <button
+        onClick={onProfile}
+        className="mt-4 flex items-center gap-3 w-full clay-card-sm px-3 py-2.5 hover:opacity-80 transition-opacity"
+      >
+        <div
+          className="w-9 h-9 rounded-xl overflow-hidden flex items-center justify-center shrink-0"
+          style={{ background: "rgba(255,209,220,0.45)" }}
+        >
+          {user?.imageUrl ? (
+            <img
+              src={user.imageUrl}
+              className="w-full h-full object-cover"
+              alt="avatar"
+            />
+          ) : (
+            <UserIcon size={18} style={{ color: "var(--peach-deep)" }} />
+          )}
+        </div>
+        <div className="flex-1 min-w-0 text-left">
+          <p
+            className="font-bold text-sm truncate leading-tight"
+            style={{ color: "var(--brown)" }}
+          >
+            {user?.name ?? "..."}
+          </p>
+          <p
+            className="text-[10px] truncate"
+            style={{ color: "var(--brown-muted)" }}
+          >
+            {user?.email}
+          </p>
+        </div>
+        <ChevronRight size={14} style={{ color: "var(--brown-muted)" }} />
+      </button>
+
+      <button
+        onClick={onLogout}
+        className="btn-ghost mt-2 text-xs"
+        style={{ height: "2.5rem" }}
+      >
+        <LogOut size={14} /> Đăng xuất
+      </button>
+    </aside>
+  );
+}
+
+/* ─── Profile Drawer ─────────────────────────────────────── */
+function ProfileDrawer({
+  user,
+  onClose,
+  onSaved,
+  fileInputRef,
+  onFileChange,
+  uploading,
+}: {
+  user: UserProfile;
+  onClose: () => void;
+  onSaved: () => void;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  uploading: boolean;
+}) {
+  const [isEdit, setIsEdit] = useState(false);
+  const [form, setForm] = useState({
+    name: user.name,
+    weight: user.weight,
+    dailyCaffeineLimit: user.dailyCaffeineLimit,
+    dailySugarLimit: user.dailySugarLimit,
+  });
+  const [fieldErrors, setFieldErrors] = useState<{ [k: string]: string }>({});
+  const [saving, setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setFieldErrors({});
+    try {
+      await api.patch("/user/update", form);
+      toast.success("✨ Hồ sơ đã được lưu!");
+      setIsEdit(false);
+      onSaved();
+    } catch (e: any) {
+      if (e.response?.status === 400) {
+        setFieldErrors(e.response.data.message || {});
+        toast.error("Kiểm tra lại thông tin nhé! 🌸");
+      } else {
+        toast.error("Không thể lưu thay đổi");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const inputClass = (field: string) =>
+    `soft-input ${fieldErrors[field] ? "error" : ""}`;
+
+  return (
+    <>
+      {/* Backdrop */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        onClick={onClose}
+        className="fixed inset-0 z-40"
+        style={{
+          background: "rgba(109,76,65,0.25)",
+          backdropFilter: "blur(6px)",
+        }}
+      />
+
+      {/* Panel */}
+      <motion.div
+        initial={{ x: "100%" }}
+        animate={{ x: 0 }}
+        exit={{ x: "100%" }}
+        transition={{ type: "spring", damping: 28, stiffness: 260 }}
+        className="fixed top-0 right-0 h-full w-full sm:w-[22rem] z-50 overflow-y-auto"
+        style={{
+          background: "rgba(255,245,225,0.96)",
+          backdropFilter: "blur(24px)",
+          borderLeft: "1.5px solid rgba(215,204,200,0.6)",
+          boxShadow: "-8px 0 40px rgba(109,76,65,0.12)",
+        }}
+      >
+        <div className="p-7 pt-16 relative">
+          {/* Close */}
+          <button
+            onClick={onClose}
+            className="absolute top-5 right-5 w-9 h-9 rounded-2xl flex items-center justify-center transition-colors"
+            style={{
+              background: "rgba(255,209,220,0.35)",
+              color: "var(--brown-light)",
+            }}
+          >
+            <X size={18} />
+          </button>
+
+          {/* Avatar */}
+          <div
+            className="relative w-28 h-28 mx-auto mb-6 group cursor-pointer"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <div
+              className="w-full h-full rounded-[2.2rem] overflow-hidden flex items-center justify-center transition-transform hover:scale-105"
+              style={{
+                background: "rgba(255,209,220,0.35)",
+                border: "4px solid rgba(255,255,255,0.8)",
+                boxShadow: "0 6px 20px rgba(109,76,65,0.12)",
+              }}
+            >
+              {uploading ? (
+                <Settings
+                  size={32}
+                  className="animate-spin"
+                  style={{ color: "var(--peach-deep)" }}
+                />
+              ) : user.imageUrl ? (
+                <img
+                  src={user.imageUrl}
+                  className="w-full h-full object-cover"
+                  alt=""
+                />
+              ) : (
+                <UserIcon size={40} style={{ color: "var(--peach-deep)" }} />
+              )}
+            </div>
+            <div
+              className="absolute inset-0 rounded-[2.2rem] opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity"
+              style={{ background: "rgba(255,209,220,0.55)" }}
+            >
+              <Camera size={22} style={{ color: "var(--brown)" }} />
+            </div>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={onFileChange}
+              accept="image/*"
+              className="hidden"
+            />
+          </div>
+
+          {/* Name & email */}
+          {!isEdit && (
+            <div className="text-center mb-6 space-y-1">
+              <h2
+                className="text-xl font-bold"
+                style={{ color: "var(--brown)" }}
+              >
+                {user.name}
+              </h2>
+              <div
+                className="flex items-center justify-center gap-1.5 text-xs font-medium"
+                style={{ color: "var(--brown-muted)" }}
+              >
+                <Mail size={11} /> {user.email}
+              </div>
+            </div>
+          )}
+
+          {isEdit ? (
+            <div className="space-y-4">
+              {/* Name */}
+              <div className="space-y-1.5">
+                <label
+                  className="text-[10px] font-bold uppercase tracking-widest ml-3"
+                  style={{ color: "var(--brown-muted)" }}
+                >
+                  Tên của bạn 🌸
+                </label>
+                <input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className={inputClass("name")}
+                  placeholder="Princess..."
+                />
+                {fieldErrors.name && (
+                  <p className="text-[10px] text-rose-500 ml-3">
+                    {fieldErrors.name}
+                  </p>
+                )}
+              </div>
+
+              {/* Weight */}
+              <div className="space-y-1.5">
+                <label
+                  className="text-[10px] font-bold uppercase tracking-widest ml-3"
+                  style={{ color: "var(--brown-muted)" }}
+                >
+                  Cân nặng (kg) ⚖️
+                </label>
+                <input
+                  inputMode="decimal"
+                  value={form.weight}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9.]/g, "");
+                    setForm({ ...form, weight: v === "" ? 0 : Number(v) });
+                  }}
+                  className={inputClass("weight")}
+                />
+                {fieldErrors.weight && (
+                  <p className="text-[10px] text-rose-500 ml-3">
+                    {fieldErrors.weight}
+                  </p>
+                )}
+              </div>
+
+              {/* Limits */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label
+                    className="text-[10px] font-bold uppercase ml-2"
+                    style={{ color: "var(--brown-muted)" }}
+                  >
+                    Caffeine ⚡
+                  </label>
+                  <input
+                    inputMode="numeric"
+                    value={form.dailyCaffeineLimit}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      setForm({
+                        ...form,
+                        dailyCaffeineLimit: v === "" ? 0 : Number(v),
+                      });
+                    }}
+                    className={inputClass("dailyCaffeineLimit")}
+                    style={{ borderRadius: "1rem", paddingLeft: "1rem" }}
+                  />
+                  {fieldErrors.dailyCaffeineLimit && (
+                    <p className="text-[9px] text-rose-500">
+                      {fieldErrors.dailyCaffeineLimit}
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  <label
+                    className="text-[10px] font-bold uppercase ml-2"
+                    style={{ color: "var(--brown-muted)" }}
+                  >
+                    Đường 🍬
+                  </label>
+                  <input
+                    inputMode="numeric"
+                    value={form.dailySugarLimit}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      setForm({
+                        ...form,
+                        dailySugarLimit: v === "" ? 0 : Number(v),
+                      });
+                    }}
+                    className={inputClass("dailySugarLimit")}
+                    style={{ borderRadius: "1rem", paddingLeft: "1rem" }}
+                  />
+                  {fieldErrors.dailySugarLimit && (
+                    <p className="text-[9px] text-rose-500">
+                      {fieldErrors.dailySugarLimit}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="btn-primary mt-2"
+              >
+                <Save size={16} />
+                {saving ? "Đang lưu..." : "Lưu thay đổi ✨"}
+              </button>
+              <button onClick={() => setIsEdit(false)} className="btn-ghost">
+                Hủy bỏ
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {/* Info rows */}
+              {[
+                {
+                  icon: Scale,
+                  label: "Cân nặng",
+                  val: `${user.weight} kg`,
+                  emoji: "⚖️",
+                },
+                {
+                  icon: Zap,
+                  label: "Caffeine / ngày",
+                  val: `${user.dailyCaffeineLimit} mg`,
+                  emoji: "⚡",
+                },
+                {
+                  icon: Droplets,
+                  label: "Đường / ngày",
+                  val: `${user.dailySugarLimit} g`,
+                  emoji: "🍬",
+                },
+              ].map((row) => (
+                <div
+                  key={row.label}
+                  className="clay-card-sm flex items-center justify-between px-4 py-3.5"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">{row.emoji}</span>
+                    <span
+                      className="text-sm font-medium"
+                      style={{ color: "var(--brown-light)" }}
+                    >
+                      {row.label}
+                    </span>
+                  </div>
+                  <span
+                    className="font-bold text-sm"
+                    style={{ color: "var(--brown)" }}
+                  >
+                    {row.val}
+                  </span>
+                </div>
+              ))}
+
+              <button
+                onClick={() => setIsEdit(true)}
+                className="btn-secondary mt-2"
+              >
+                <Edit2 size={15} /> Chỉnh sửa hồ sơ
+              </button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    </>
+  );
+}
+
+/* ─── Main Dashboard ─────────────────────────────────────── */
+export default function Dashboard() {
+  const [user, setUser] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const router = useRouter();
+
+  const fetchProfile = useCallback(async () => {
+    try {
+      const res = await api.get("/user/my-profile");
+      if (res.status === 200 || res.status === 201) {
+        setUser(res.data.data || res.data);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProfile();
+  }, [fetchProfile]);
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    setUploading(true);
+    try {
+      await api.post("/user/upload-avatar", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      toast.success("🌸 Avatar đã được tải lên!");
+      await fetchProfile();
+    } catch {
+      toast.error("Tải ảnh thất bại");
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleLogout = () => {
+    Cookies.remove("coffee_token");
+    Cookies.remove("coffee_refresh_token");
+    Cookies.remove("coffee_user");
+    toast.success("💕 Hẹn gặp lại Princess nhé!");
+    router.push("/login");
+  };
+
+  /* computed totals */
+  const totalCaffeine =
+    user?.logs?.reduce((s, l) => s + (l.caffeineAmount ?? 0), 0) ?? 0;
+  const totalSugar =
+    user?.logs?.reduce((s, l) => s + (l.sugarAmount ?? 0), 0) ?? 0;
+
+  /* greeting */
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 11
+      ? "Chào buổi sáng"
+      : hour < 18
+        ? "Chào buổi chiều"
+        : "Chào buổi tối";
+
+  /* ── Loading ─── */
+  if (loading && !user) {
+    return (
+      <div
+        className="min-h-screen flex flex-col items-center justify-center gap-4"
+        style={{ background: "var(--vanilla)" }}
+      >
+        <div
+          className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center text-3xl pulse-gentle"
+          style={{ background: "rgba(255,209,220,0.40)" }}
+        >
+          ☕
+        </div>
+        <p
+          className="font-bold text-sm"
+          style={{ color: "var(--brown-muted)" }}
+        >
+          Đang pha cà phê… ✨
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* ─── PC Sidebar ─────────────────────────────────────── */}
+      <Sidebar
+        user={user}
+        onProfile={() => setIsProfileOpen(true)}
+        onLogout={handleLogout}
+      />
+
+      {/* ─── Main Scroll Area ────────────────────────────────── */}
+      <main
+        className="min-h-screen pb-28 lg:pb-10 lg:pl-64"
+        style={{ color: "var(--brown)" }}
+      >
+        {/* ── Header ───────────────────────────────────────────*/}
+        <header className="px-6 lg:px-10 pt-10 pb-5 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            {/* Avatar chip */}
+            <button
+              onClick={() => setIsProfileOpen(true)}
+              className="w-14 h-14 rounded-[1.4rem] overflow-hidden flex items-center justify-center shrink-0 transition-transform hover:scale-105 active:scale-95"
+              style={{
+                background: "rgba(255,209,220,0.35)",
+                border: "3px solid rgba(255,255,255,0.8)",
+                boxShadow: "0 4px 14px rgba(109,76,65,0.10)",
+              }}
+            >
+              {user?.imageUrl ? (
+                <img
+                  src={user.imageUrl}
+                  className="w-full h-full object-cover"
+                  alt="Avatar"
+                />
+              ) : (
+                <UserIcon size={26} style={{ color: "var(--peach-deep)" }} />
+              )}
+            </button>
+
+            <div>
+              <p
+                className="text-[11px] font-bold uppercase tracking-[0.18em]"
+                style={{ color: "var(--brown-muted)" }}
+              >
+                {greeting} ✨
+              </p>
+              <h1
+                className="text-2xl font-bold leading-tight"
+                style={{ color: "var(--brown)" }}
+              >
+                {user?.name ?? "Princess"}
+              </h1>
+            </div>
+          </div>
+
+          {/* Mobile logout (hidden on lg) */}
+          <button
+            onClick={handleLogout}
+            className="lg:hidden w-11 h-11 rounded-2xl flex items-center justify-center transition-colors"
+            style={{
+              background: "rgba(255,209,220,0.30)",
+              color: "var(--brown-light)",
+            }}
+          >
+            <LogOut size={18} />
+          </button>
+        </header>
+
+        {/* ── Content grid ─────────────────────────────────────*/}
+        <div className="px-6 lg:px-10 grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* ── LEFT + CENTER  (lg: span-2) ───────────────── */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Progress rings */}
+            <section>
+              <SectionTitle>Giới hạn hôm nay 💪</SectionTitle>
+              <div className="grid grid-cols-2 gap-4 mt-3">
+                <RingProgress
+                  value={totalCaffeine}
+                  max={user?.dailyCaffeineLimit ?? 400}
+                  color="var(--peach-deep)"
+                  emoji="⚡"
+                  label="Caffeine"
+                  unit="mg"
+                />
+                <RingProgress
+                  value={totalSugar}
+                  max={user?.dailySugarLimit ?? 30}
+                  color="#80CBC4"
+                  emoji="🍬"
+                  label="Đường"
+                  unit="g"
+                />
+              </div>
+            </section>
+
+            {/* Drink log */}
+            <section>
+              <div className="flex items-center justify-between mt-2 mb-3">
+                <SectionTitle>Nhật ký hôm nay 📖</SectionTitle>
+                <button
+                  className="text-[11px] font-bold uppercase tracking-widest transition-colors"
+                  style={{ color: "var(--peach-deep)" }}
+                >
+                  Xem tất cả
+                </button>
+              </div>
+              <div className="space-y-3">
+                {user?.logs && user.logs.length > 0 ? (
+                  user.logs.map((log) => <DrinkCard key={log.id} log={log} />)
+                ) : (
+                  <EmptyLog />
+                )}
+              </div>
+            </section>
+          </div>
+
+          {/* ── RIGHT – Widget column (lg only) ───────────── */}
+          <div className="hidden lg:flex flex-col gap-5">
+            {/* Quick Add widget */}
+            <div className="clay-card p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">➕</span>
+                <h3
+                  className="font-bold text-base"
+                  style={{ color: "var(--brown)" }}
+                >
+                  Quick Add
+                </h3>
+              </div>
+              <p className="text-sm" style={{ color: "var(--brown-muted)" }}>
+                Chọn đồ uống nhanh yêu thích:
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {["☕ Espresso", "🧋 Bubble Tea", "🍵 Matcha", "🥛 Latte"].map(
+                  (d) => (
+                    <button
+                      key={d}
+                      className="clay-card-sm text-xs font-bold py-2.5 px-3 text-center hover:opacity-80 transition-opacity"
+                      style={{ color: "var(--brown)" }}
+                      onClick={() => toast.info(`${d} – coming soon!`)}
+                    >
+                      {d}
+                    </button>
+                  ),
+                )}
+              </div>
+            </div>
+
+            {/* Daily summary widget */}
+            <div className="clay-card p-6 space-y-4">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📊</span>
+                <h3
+                  className="font-bold text-base"
+                  style={{ color: "var(--brown)" }}
+                >
+                  Tổng hôm nay
+                </h3>
+              </div>
+              <div className="space-y-3">
+                {[
+                  {
+                    emoji: "☕",
+                    label: "Số lần uống",
+                    val: `${user?.logs?.length ?? 0} lần`,
+                  },
+                  {
+                    emoji: "⚡",
+                    label: "Caffeine",
+                    val: `${totalCaffeine} mg`,
+                  },
+                  { emoji: "🍬", label: "Đường", val: `${totalSugar} g` },
+                  {
+                    emoji: "⚖️",
+                    label: "Cân nặng",
+                    val: `${user?.weight ?? "—"} kg`,
+                  },
+                ].map((r) => (
+                  <div
+                    key={r.label}
+                    className="flex items-center justify-between"
+                  >
+                    <div
+                      className="flex items-center gap-2 text-sm"
+                      style={{ color: "var(--brown-light)" }}
+                    >
+                      <span>{r.emoji}</span> {r.label}
+                    </div>
+                    <span
+                      className="font-bold text-sm"
+                      style={{ color: "var(--brown)" }}
+                    >
+                      {r.val}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Journal / tip card */}
+            <div
+              className="clay-card p-6 space-y-3"
+              style={{ background: "rgba(255,209,220,0.25)" }}
+            >
+              <p className="text-lg">🌸 Lời nhắc nhở</p>
+              <p
+                className="text-sm leading-relaxed italic"
+                style={{ color: "var(--brown-light)" }}
+              >
+                "Uống đủ nước giúp cơ thể hấp thụ caffeine tốt hơn và giữ cho
+                làn da mịn màng~"
+              </p>
+              <p
+                className="text-[10px] font-bold tracking-widest uppercase"
+                style={{ color: "var(--brown-muted)" }}
+              >
+                Coffee Sweetie Tip ✨
+              </p>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* ─── Mobile Bottom Nav ────────────────────────────────*/}
+      <nav className="bottom-nav">
+        {[
+          { icon: LayoutDashboard, label: "Trang chủ", active: true },
+          { icon: BookOpen, label: "Nhật ký", active: false },
+          { icon: "fab", label: "", active: false }, // spacer for FAB
+          { icon: Heart, label: "Sức khỏe", active: false },
+          { icon: UserIcon, label: "Hồ sơ", active: false },
+        ].map((item, i) => {
+          if (item.icon === "fab") return <div key={i} className="w-16" />;
+          const Icon = item.icon as React.ElementType;
+          return (
+            <button
+              key={i}
+              onClick={
+                item.label === "Hồ sơ"
+                  ? () => setIsProfileOpen(true)
+                  : undefined
+              }
+              className="flex flex-col items-center gap-1 px-3 py-1 transition-opacity"
+              style={{
+                color: item.active ? "var(--peach-deep)" : "var(--brown-muted)",
+              }}
+            >
+              <Icon size={20} strokeWidth={item.active ? 2.2 : 1.8} />
+              <span className="text-[9px] font-bold">{item.label}</span>
+            </button>
+          );
+        })}
+      </nav>
+
+      {/* ─── FAB ─────────────────────────────────────────────*/}
+      <button
+        className="fab"
+        onClick={() => toast.info("✨ Thêm đồ uống – coming soon!")}
+        aria-label="Thêm đồ uống"
+      >
+        <Plus size={30} strokeWidth={2.5} />
+      </button>
+
+      {/* ─── Profile Drawer ───────────────────────────────────*/}
+      <AnimatePresence>
+        {isProfileOpen && user && (
+          <ProfileDrawer
+            user={user}
+            onClose={() => setIsProfileOpen(false)}
+            onSaved={fetchProfile}
+            fileInputRef={fileInputRef}
+            onFileChange={handleFileUpload}
+            uploading={uploading}
+          />
+        )}
+      </AnimatePresence>
+    </>
+  );
+}
+
+/* ─── Small helper component ─────────────────────────────── */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2
+      className="text-xs font-bold uppercase tracking-[0.15em]"
+      style={{ color: "var(--brown-muted)" }}
+    >
+      {children}
+    </h2>
   );
 }

@@ -1,111 +1,241 @@
 "use client";
 
 import React, { useState } from "react";
-import { motion } from "framer-motion";
-import { Mail, ArrowRight, Heart } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Mail, ArrowRight, AlertCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import Cookies from "js-cookie";
+
+/* ── Helpers ──────────────────────────────────────────────── */
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function validateEmail(value: string): string | null {
+  if (!value.trim()) return "Vui lòng nhập email";
+  if (!EMAIL_REGEX.test(value))
+    return "Email không đúng định dạng (ví dụ: ten@gmail.com)";
+  return null; // hợp lệ
+}
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleRequestOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
+  /* Validate realtime khi user gõ (chỉ sau lần blur đầu tiên) */
+  const [touched, setTouched] = useState(false);
 
+  const handleChange = (val: string) => {
+    setEmail(val);
+    if (touched) setFieldError(validateEmail(val));
+  };
+
+  const handleBlur = () => {
+    setTouched(true);
+    setFieldError(validateEmail(email));
+  };
+
+  const handleLogin = async () => {
+    setTouched(true);
+    const err = validateEmail(email);
+    if (err) {
+      setFieldError(err);
+      return;
+    }
+    setFieldError(null);
+    setLoading(true);
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-      console.log("--- ĐANG GỌI API TẠI: ---", apiUrl);
-      const res = await fetch(`${apiUrl}/auth/request`, {
+      const res = await fetch(`${apiUrl}/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-
       const data = await res.json();
 
       if (res.ok) {
-        if (data.data?.devOtp) {
-          toast.success(`[DEV MODE] Mã của bạn là: ${data.data.devOtp}`, {
-            duration: 10000,
-            icon: "🌸",
-          });
-        } else {
-          toast.success("Mã OTP đã được gửi về Gmail của bạn 🌸");
-        }
-        router.push(`/verify?email=${encodeURIComponent(email)}`);
+        const { access_token, refresh_token, user } = data.data || data;
+        Cookies.set("coffee_token", access_token, { expires: 1 });
+        Cookies.set("coffee_refresh_token", refresh_token, { expires: 7 });
+        Cookies.set("coffee_user", JSON.stringify(user), { expires: 7 });
+        toast.success(`🌸 Chào mừng trở về, ${user.name || "Princess"}!`);
+        router.push("/");
       } else {
-        toast.error(data.message || "Gửi mã thất bại!");
+        const apiMsg =
+          typeof data.message === "object" ? data.message?.email : data.message;
+
+        if (res.status === 400) {
+          // Email đúng format nhưng chưa có trong hệ thống
+          toast.error(
+            "Email này chưa được đăng ký! Bạn cần tạo tài khoản trước nhé 🌸",
+            {
+              action: {
+                label: "Đăng ký ngay",
+                onClick: () => router.push("/register"),
+              },
+              duration: 6000,
+            },
+          );
+        } else {
+          toast.error(apiMsg || "Đăng nhập thất bại, thử lại nhé!");
+        }
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Lỗi kết nối tới Server! 🏹");
+    } catch {
+      toast.error("Lỗi kết nối tới máy chủ!");
     } finally {
       setLoading(false);
     }
   };
 
-  return (
-    <main className="min-h-screen app-container px-8 flex flex-col justify-center gap-12 font-['Quicksand']">
-      <div className="text-center space-y-4">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="w-24 h-24 bg-white rounded-[2.5rem] shadow-xl flex items-center justify-center mx-auto border-4 border-pink-100"
-        >
-          <Heart className="fill-pink-400 text-pink-400 w-12 h-12" />
-        </motion.div>
-        <h1 className="text-4xl font-black text-amber-900 tracking-tight">
-          🌸 Coffee Diary 🌸
-        </h1>
-        <p className="text-gray-400 font-bold uppercase tracking-widest text-xs">
-          Welcome Back
-        </p>
-      </div>
+  const hasError = touched && !!fieldError;
 
-      <motion.form
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        onSubmit={handleRequestOtp}
-        className="cute-card p-10 space-y-8"
+  return (
+    <main
+      className="min-h-screen flex flex-col items-center justify-center px-6 py-12 relative overflow-hidden"
+      style={{ color: "var(--brown)" }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: -24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, ease: "easeOut" }}
+        className="text-center mb-10 space-y-5"
       >
-        <div className="space-y-3">
-          <label className="text-sm font-black text-amber-900 ml-4 uppercase tracking-tighter">
-            Email của bạn
-          </label>
-          <div className="relative">
-            <Mail
-              className="absolute left-6 top-1/2 -translate-y-1/2 text-pink-300"
-              size={24}
-            />
-            <input
-              type="email"
-              placeholder="princess@example.com"
-              required
-              className="w-full h-18 bg-pink-50/50 border-4 border-transparent focus:border-pink-200 focus:bg-white rounded-[2rem] pl-16 pr-6 outline-none transition-all font-bold text-amber-900"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+        <div className="flex justify-center">
+          <motion.div
+            animate={{ scale: [1, 1.06, 1], rotate: [0, 4, -4, 0] }}
+            transition={{ repeat: Infinity, duration: 4.5 }}
+            className="w-24 h-24 rounded-[2rem] flex items-center justify-center text-5xl"
+            style={{
+              background: "rgba(255,209,220,0.45)",
+              border: "3px solid rgba(255,255,255,0.75)",
+              boxShadow:
+                "0 8px 30px rgba(245,167,186,0.30), inset 0 1px 1px rgba(255,255,255,0.7)",
+            }}
+          >
+            ☕
+          </motion.div>
         </div>
 
-        <button
-          disabled={loading}
-          className="w-full h-18 gradient-pink rounded-[2rem] shadow-2xl shadow-pink-200 text-white font-black text-lg flex items-center justify-center gap-3 active:scale-95 transition-all disabled:opacity-50"
-        >
-          {loading ? "Đang gửi mã..." : "Gửi mã OTP cho tôi"}
-          <ArrowRight size={24} />
-        </button>
-      </motion.form>
+        <div>
+          <h1
+            className="text-4xl font-bold tracking-tight"
+            style={{ color: "var(--brown)" }}
+          >
+            Coffee <span style={{ color: "var(--peach-deep)" }}>Sweetie</span>
+          </h1>
+          <p
+            className="text-[11px] font-bold uppercase tracking-[0.3em] mt-1"
+            style={{ color: "var(--brown-muted)" }}
+          >
+            Tracker ✨ theo dõi
+          </p>
+        </div>
+      </motion.div>
 
-      <p className="text-center text-xs font-bold text-gray-400">
-        Bằng cách tiếp tục, bạn đồng ý với các{" "}
-        <span className="text-pink-400 underline italic">
-          điều khoản đáng yêu
-        </span>{" "}
-        của chúng tôi
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
+        className="clay-card w-full max-w-sm p-8 space-y-6"
+      >
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-bold" style={{ color: "var(--brown)" }}>
+            Đăng nhập 🌸
+          </h2>
+          <p className="text-sm" style={{ color: "var(--brown-muted)" }}>
+            Nhập email để vào cửa ngay nhé!
+          </p>
+        </div>
+
+        {/* ── Email field ────────────────────────────────────── */}
+        <div className="space-y-2">
+          <label
+            htmlFor="login-email"
+            className="text-[10px] font-bold uppercase tracking-widest ml-3"
+            style={{ color: "var(--brown-muted)" }}
+          >
+            Địa chỉ Email
+          </label>
+
+          <div className="relative">
+            <div
+              className="absolute left-4 top-1/2 -translate-y-1/2 transition-colors"
+              style={{ color: hasError ? "#F06292" : "var(--peach-deep)" }}
+            >
+              <Mail size={18} strokeWidth={1.8} />
+            </div>
+            <input
+              id="login-email"
+              type="text"
+              inputMode="email"
+              placeholder="ten-cua-ban@gmail.com"
+              value={email}
+              onChange={(e) => handleChange(e.target.value)}
+              onBlur={handleBlur}
+              onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+              className={`soft-input ${hasError ? "error" : ""}`}
+              style={{ paddingLeft: "3rem" }}
+              aria-describedby={hasError ? "email-error" : undefined}
+              aria-invalid={hasError}
+            />
+          </div>
+
+          {/* Inline error message */}
+          <AnimatePresence>
+            {hasError && (
+              <motion.div
+                id="email-error"
+                role="alert"
+                initial={{ opacity: 0, y: -4, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -4, height: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-1.5 ml-3"
+              >
+                <AlertCircle size={12} color="#F06292" />
+                <span
+                  className="text-[11px] font-semibold"
+                  style={{ color: "#F06292" }}
+                >
+                  {fieldError}
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* ── Submit ─────────────────────────────────────────── */}
+        <button
+          id="login-btn"
+          onClick={handleLogin}
+          disabled={loading}
+          className="btn-primary"
+        >
+          <span>{loading ? "Đang mở cửa…" : "Đăng nhập ngay"}</span>
+          <ArrowRight size={20} />
+        </button>
+
+        <p
+          className="text-center text-sm"
+          style={{ color: "var(--brown-muted)" }}
+        >
+          Bạn là người mới?{" "}
+          <button
+            onClick={() => router.push("/register")}
+            className="font-bold underline underline-offset-4 transition-colors"
+            style={{ color: "var(--peach-deep)" }}
+          >
+            Đăng ký ngay 🌸
+          </button>
+        </p>
+      </motion.div>
+
+      <p
+        className="mt-8 text-[10px] text-center uppercase tracking-widest"
+        style={{ color: "var(--brown-muted)" }}
+      >
+        Hệ thống theo dõi sức khỏe với tình yêu của Mr.Híu 💕
       </p>
     </main>
   );
