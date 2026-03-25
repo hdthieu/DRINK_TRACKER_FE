@@ -21,11 +21,15 @@ import {
   BookOpen,
   Sparkles,
   ChevronRight,
+  Star,
+  Bell,
+  BellOff,
 } from "lucide-react";
 import { toast } from "sonner";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import api from "@/lib/api";
+import DrinkLogModal from "@/components/DrinkLogModal";
 
 /* ─── Types ──────────────────────────────────────────────── */
 interface UserProfile {
@@ -36,13 +40,17 @@ interface UserProfile {
   dailySugarLimit: number;
   weight: number;
   imageUrl?: string;
-  logs: DrinkLog[];
 }
 interface DrinkLog {
   id: string;
   drinkName: string;
-  caffeineAmount: number;
-  sugarAmount?: number;
+  caffeineMg: number;
+  sugarG: number;
+  calories: number;
+  price: number;
+  rating: number;
+  size?: string;
+  temperature?: string;
   createdAt: string;
 }
 
@@ -120,11 +128,10 @@ function DrinkCard({ log }: { log: DrinkLog }) {
   });
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
       className="clay-card-sm p-4 flex items-center justify-between gap-4 group"
     >
-      {/* Polaroid photo frame */}
       <div
         className="w-14 h-14 rounded-[18px] flex items-center justify-center shrink-0 shadow-inner group-hover:scale-110 transition-transform duration-200"
         style={{
@@ -146,12 +153,49 @@ function DrinkCard({ log }: { log: DrinkLog }) {
         >
           {log.drinkName}
         </h4>
-        <p
-          className="text-[11px] font-medium mt-0.5"
-          style={{ color: "var(--brown-muted)" }}
-        >
-          🕐 {t}
-        </p>
+        <div className="flex flex-wrap items-center gap-2 mt-0.5">
+          <p
+            className="text-[11px] font-medium"
+            style={{ color: "var(--brown-muted)" }}
+          >
+            🕐 {t}
+          </p>
+          {(log.size || log.temperature) && (
+            <div className="flex gap-1">
+              {log.size && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-md bg-white border border-[var(--latte)] text-[var(--brown-muted)]">
+                  {log.size}
+                </span>
+              )}
+              {log.temperature && (
+                <span
+                  className={`text-[9px] font-bold px-1.5 py-0.5 rounded-md border ${
+                    log.temperature === "Hot"
+                      ? "bg-orange-50 border-orange-100 text-orange-500"
+                      : "bg-blue-50 border-blue-100 text-blue-500"
+                  }`}
+                >
+                  {log.temperature === "Hot" ? "Hot" : "Cold"}
+                </span>
+              )}
+            </div>
+          )}
+          <div className="flex gap-0.5">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Star
+                key={s}
+                size={8}
+                fill={s <= (log.rating || 0) ? "var(--peach-deep)" : "none"}
+                stroke={
+                  s <= (log.rating || 0)
+                    ? "var(--peach-deep)"
+                    : "var(--latte-deep)"
+                }
+                strokeWidth={2}
+              />
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="text-right shrink-0">
@@ -159,21 +203,19 @@ function DrinkCard({ log }: { log: DrinkLog }) {
           className="font-bold text-base"
           style={{ color: "var(--peach-deep)" }}
         >
-          +{log.caffeineAmount}
+          +{log.caffeineMg}
           <span className="text-[10px] ml-0.5">mg</span>
         </p>
-        {log.sugarAmount != null && (
-          <p className="text-[10px]" style={{ color: "var(--brown-muted)" }}>
-            🍬 {log.sugarAmount}g
-          </p>
-        )}
+        <p className="text-[10px]" style={{ color: "var(--brown-muted)" }}>
+          🍬 {log.sugarG}g
+        </p>
       </div>
     </motion.div>
   );
 }
 
 /* ─── Empty State ────────────────────────────────────────── */
-function EmptyLog() {
+function EmptyLog({ onAdd }: { onAdd: () => void }) {
   return (
     <div
       className="p-12 text-center rounded-[2rem] border-2 border-dashed space-y-4"
@@ -192,16 +234,29 @@ function EmptyLog() {
           style={{ color: "var(--peach-deep)" }}
         />
       </div>
-      <div className="space-y-1">
-        <p
-          className="font-bold text-base"
-          style={{ color: "var(--brown-light)" }}
+      <div className="space-y-4">
+        <div className="space-y-1">
+          <p
+            className="font-bold text-base"
+            style={{ color: "var(--brown-light)" }}
+          >
+            Chưa có gì hôm nay~ ☕
+          </p>
+          <p className="text-xs" style={{ color: "var(--brown-muted)" }}>
+            Thêm đồ uống đầu tiên của bạn nhé!
+          </p>
+        </div>
+        <button
+          className="btn-secondary"
+          style={{
+            width: "auto",
+            paddingLeft: "1.5rem",
+            paddingRight: "1.5rem",
+          }}
+          onClick={onAdd}
         >
-          Chưa có gì hôm nay~ ☕
-        </p>
-        <p className="text-xs" style={{ color: "var(--brown-muted)" }}>
-          Thêm đồ uống đầu tiên của bạn nhé!
-        </p>
+          Thêm ngay!
+        </button>
       </div>
     </div>
   );
@@ -212,16 +267,36 @@ function Sidebar({
   user,
   onProfile,
   onLogout,
+  onAddDrink,
 }: {
   user: UserProfile | null;
   onProfile: () => void;
   onLogout: () => void;
+  onAddDrink: () => void;
 }) {
   const navItems = [
     { icon: LayoutDashboard, label: "Dashboard", active: true },
     { icon: BookOpen, label: "Nhật ký", active: false },
     { icon: Sparkles, label: "Gợi ý", active: false },
   ];
+
+  const [notifPermission, setNotifPermission] =
+    useState<NotificationPermission>(
+      typeof Notification !== "undefined" ? Notification.permission : "default",
+    );
+
+  const requestPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    const res = await Notification.requestPermission();
+    setNotifPermission(res);
+    if (res === "granted") {
+      new Notification("🌸 Coffee Sweetie", {
+        body: "Thông báo đã được bật! Em sẽ nhắc chị uống nước nhé~",
+        icon: "/icons/icon-192x192.png",
+      });
+    }
+  };
+
   return (
     <aside className="sidebar">
       {/* Logo */}
@@ -256,13 +331,28 @@ function Sidebar({
             {n.label}
           </button>
         ))}
+
+        <button
+          onClick={requestPermission}
+          className="sidebar-item mt-2"
+          style={{
+            color:
+              notifPermission === "granted" ? "var(--peach-deep)" : "inherit",
+          }}
+        >
+          {notifPermission === "granted" ? (
+            <Bell size={18} strokeWidth={1.8} />
+          ) : (
+            <BellOff size={18} strokeWidth={1.8} />
+          )}
+          {notifPermission === "granted" ? "Đã bật thông báo" : "Bật thông báo"}
+        </button>
       </nav>
 
-      {/* Quick-Add button */}
       <button
         className="btn-primary mt-auto"
         style={{ height: "3rem" }}
-        onClick={() => toast.info("✨ Quick Add – coming soon!")}
+        onClick={onAddDrink}
       >
         <Plus size={18} /> Thêm đồ uống
       </button>
@@ -645,17 +735,27 @@ function ProfileDrawer({
 /* ─── Main Dashboard ─────────────────────────────────────── */
 export default function Dashboard() {
   const [user, setUser] = useState<UserProfile | null>(null);
+  const [todayLogs, setTodayLogs] = useState<DrinkLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isAddDrinkOpen, setIsAddDrinkOpen] = useState(false);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
 
-  const fetchProfile = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const res = await api.get("/user/my-profile");
-      if (res.status === 200 || res.status === 201) {
-        setUser(res.data.data || res.data);
+      const [userRes, logsRes] = await Promise.all([
+        api.get("/user/my-profile"),
+        api.get("/drinklog/today"),
+      ]);
+
+      if (userRes.status === 200 || userRes.status === 201) {
+        setUser(userRes.data.data || userRes.data);
+      }
+
+      if (logsRes.status === 200 || logsRes.status === 201) {
+        setTodayLogs(logsRes.data.data || logsRes.data);
       }
     } catch (e) {
       console.error(e);
@@ -665,8 +765,39 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    fetchProfile();
-  }, [fetchProfile]);
+    fetchData();
+  }, [fetchData]);
+
+  /* ── Reminder Logic ─── */
+  useEffect(() => {
+    if (
+      typeof Notification === "undefined" ||
+      Notification.permission !== "granted"
+    )
+      return;
+
+    // Check every 30 minutes
+    const interval = setInterval(
+      () => {
+        const lastDrink = todayLogs[0]; // Assuming todayLogs is sorted by most recent
+        if (!lastDrink) return;
+
+        const lastTime = new Date(lastDrink.createdAt).getTime();
+        const now = new Date().getTime();
+        const diffHours = (now - lastTime) / (1000 * 60 * 60);
+
+        if (diffHours >= 2) {
+          new Notification("🌸 Coffee Sweetie", {
+            body: "Đã 2 tiếng rồi chị chưa uống nước đó, uống một chút nhé! 💕",
+            icon: "/icons/icon-192x192.png",
+          });
+        }
+      },
+      1000 * 60 * 30,
+    );
+
+    return () => clearInterval(interval);
+  }, [todayLogs]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -679,7 +810,7 @@ export default function Dashboard() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("🌸 Avatar đã được tải lên!");
-      await fetchProfile();
+      await fetchData();
     } catch {
       toast.error("Tải ảnh thất bại");
     } finally {
@@ -696,10 +827,8 @@ export default function Dashboard() {
   };
 
   /* computed totals */
-  const totalCaffeine =
-    user?.logs?.reduce((s, l) => s + (l.caffeineAmount ?? 0), 0) ?? 0;
-  const totalSugar =
-    user?.logs?.reduce((s, l) => s + (l.sugarAmount ?? 0), 0) ?? 0;
+  const totalCaffeine = todayLogs.reduce((s, l) => s + (l.caffeineMg || 0), 0);
+  const totalSugar = todayLogs.reduce((s, l) => s + (l.sugarG || 0), 0);
 
   /* greeting */
   const hour = new Date().getHours();
@@ -735,11 +864,11 @@ export default function Dashboard() {
 
   return (
     <>
-      {/* ─── PC Sidebar ─────────────────────────────────────── */}
       <Sidebar
         user={user}
         onProfile={() => setIsProfileOpen(true)}
         onLogout={handleLogout}
+        onAddDrink={() => setIsAddDrinkOpen(true)}
       />
 
       {/* ─── Main Scroll Area ────────────────────────────────── */}
@@ -819,7 +948,7 @@ export default function Dashboard() {
                 <RingProgress
                   value={totalSugar}
                   max={user?.dailySugarLimit ?? 30}
-                  color="#80CBC4"
+                  color="var(--mint-deep)"
                   emoji="🍬"
                   label="Đường"
                   unit="g"
@@ -832,6 +961,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mt-2 mb-3">
                 <SectionTitle>Nhật ký hôm nay 📖</SectionTitle>
                 <button
+                  onClick={() => setIsAddDrinkOpen(true)}
                   className="text-[11px] font-bold uppercase tracking-widest transition-colors"
                   style={{ color: "var(--peach-deep)" }}
                 >
@@ -839,10 +969,10 @@ export default function Dashboard() {
                 </button>
               </div>
               <div className="space-y-3">
-                {user?.logs && user.logs.length > 0 ? (
-                  user.logs.map((log) => <DrinkCard key={log.id} log={log} />)
+                {todayLogs.length > 0 ? (
+                  todayLogs.map((log) => <DrinkCard key={log.id} log={log} />)
                 ) : (
-                  <EmptyLog />
+                  <EmptyLog onAdd={() => setIsAddDrinkOpen(true)} />
                 )}
               </div>
             </section>
@@ -896,7 +1026,7 @@ export default function Dashboard() {
                   {
                     emoji: "☕",
                     label: "Số lần uống",
-                    val: `${user?.logs?.length ?? 0} lần`,
+                    val: `${todayLogs.length} lần`,
                   },
                   {
                     emoji: "⚡",
@@ -989,7 +1119,7 @@ export default function Dashboard() {
       {/* ─── FAB ─────────────────────────────────────────────*/}
       <button
         className="fab"
-        onClick={() => toast.info("✨ Thêm đồ uống – coming soon!")}
+        onClick={() => setIsAddDrinkOpen(true)}
         aria-label="Thêm đồ uống"
       >
         <Plus size={30} strokeWidth={2.5} />
@@ -1000,14 +1130,20 @@ export default function Dashboard() {
         {isProfileOpen && user && (
           <ProfileDrawer
             user={user}
-            onClose={() => setIsProfileOpen(false)}
-            onSaved={fetchProfile}
-            fileInputRef={fileInputRef}
-            onFileChange={handleFileUpload}
             uploading={uploading}
+            fileInputRef={fileInputRef}
+            onClose={() => setIsProfileOpen(false)}
+            onSaved={fetchData}
+            onFileChange={handleFileUpload}
           />
         )}
       </AnimatePresence>
+
+      <DrinkLogModal
+        isOpen={isAddDrinkOpen}
+        onClose={() => setIsAddDrinkOpen(false)}
+        onSuccess={fetchData}
+      />
     </>
   );
 }
