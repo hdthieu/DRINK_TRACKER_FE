@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
   User as UserIcon,
-  Heart,
   Droplets,
   Zap,
   LogOut,
@@ -22,8 +21,7 @@ import {
   Sparkles,
   ChevronRight,
   Star,
-  Bell,
-  BellOff,
+  Map as LucideMap,
 } from "lucide-react";
 import { toast } from "sonner";
 import Cookies from "js-cookie";
@@ -39,6 +37,9 @@ interface UserProfile {
   dailyCaffeineLimit: number;
   dailySugarLimit: number;
   weight: number;
+  age?: number;
+  exerciseTimeMinutes: number;
+  isHighTemperature: boolean;
   imageUrl?: string;
 }
 interface DrinkLog {
@@ -47,6 +48,7 @@ interface DrinkLog {
   caffeineMg: number;
   sugarG: number;
   calories: number;
+  volumeMl: number;
   price: number;
   rating: number;
   size?: string;
@@ -214,6 +216,39 @@ function DrinkCard({ log }: { log: DrinkLog }) {
   );
 }
 
+/* ─── Helpers ────────────────────────────────────────────── */
+function calculateWaterGoal(user: UserProfile): number {
+  const age = user.age || 20;
+  const weight = user.weight || 60;
+
+  // 1. Children (theo độ tuổi)
+  if (age < 0.5) return 0;
+  if (age < 1) return 100; // 60 - 120ml
+  if (age < 4) return 1100; // 1 - 1.2L
+  if (age < 9) return 1350; // 1.2 - 1.5L
+  if (age < 14) return 1750; // 1.5 - 2L
+
+  // 2. Elderly (Người cao tuổi)
+  if (age >= 60) return 1750; // 1.5 - 2L
+
+  // 3. Adults (Nhóm chính)
+  // Lượng nước cơ bản: Weight * 0.03 (liters)
+  let goalLiters = weight * 0.03;
+
+  // Thêm vận động: ~360ml cho mỗi 30 phút
+  if (user.exerciseTimeMinutes > 0) {
+    goalLiters += (user.exerciseTimeMinutes / 30) * 0.36;
+  }
+
+  // Chuyển sang ml
+  let goalMl = goalLiters * 1000;
+
+  // 4. Special cases
+  if (user.isHighTemperature) goalMl += 600;
+
+  return Math.round(goalMl);
+}
+
 /* ─── Empty State ────────────────────────────────────────── */
 function EmptyLog({ onAdd }: { onAdd: () => void }) {
   return (
@@ -275,31 +310,13 @@ function Sidebar({
   onAddDrink: () => void;
 }) {
   const navItems = [
-    { icon: LayoutDashboard, label: "Dashboard", active: true },
-    { icon: BookOpen, label: "Nhật ký", active: false },
-    { icon: Sparkles, label: "Gợi ý", active: false },
+    { icon: LayoutDashboard, label: "Dashboard", active: true, href: "/" },
+    { icon: LucideMap, label: "Lộ trình", active: false, href: "/roadmap" },
+    { icon: BookOpen, label: "Nhật ký", active: false, href: "/diary" },
   ];
-
-  const [notifPermission, setNotifPermission] =
-    useState<NotificationPermission>(
-      typeof Notification !== "undefined" ? Notification.permission : "default",
-    );
-
-  const requestPermission = async () => {
-    if (typeof Notification === "undefined") return;
-    const res = await Notification.requestPermission();
-    setNotifPermission(res);
-    if (res === "granted") {
-      new Notification("🌸 Coffee Sweetie", {
-        body: "Thông báo đã được bật! Em sẽ nhắc chị uống nước nhé~",
-        icon: "/icons/icon-192x192.png",
-      });
-    }
-  };
 
   return (
     <aside className="sidebar">
-      {/* Logo */}
       <div className="flex items-center gap-3 px-2 mb-6">
         <div
           className="w-10 h-10 rounded-2xl flex items-center justify-center text-xl shadow-sm"
@@ -320,33 +337,17 @@ function Sidebar({
         </div>
       </div>
 
-      {/* Nav */}
       <nav className="flex flex-col gap-1 flex-1">
         {navItems.map((n) => (
           <button
             key={n.label}
+            onClick={() => n.href && (window.location.href = n.href)}
             className={`sidebar-item ${n.active ? "active" : ""}`}
           >
             <n.icon size={18} strokeWidth={1.8} />
             {n.label}
           </button>
         ))}
-
-        <button
-          onClick={requestPermission}
-          className="sidebar-item mt-2"
-          style={{
-            color:
-              notifPermission === "granted" ? "var(--peach-deep)" : "inherit",
-          }}
-        >
-          {notifPermission === "granted" ? (
-            <Bell size={18} strokeWidth={1.8} />
-          ) : (
-            <BellOff size={18} strokeWidth={1.8} />
-          )}
-          {notifPermission === "granted" ? "Đã bật thông báo" : "Bật thông báo"}
-        </button>
       </nav>
 
       <button
@@ -404,7 +405,6 @@ function Sidebar({
   );
 }
 
-/* ─── Profile Drawer ─────────────────────────────────────── */
 function ProfileDrawer({
   user,
   onClose,
@@ -412,6 +412,8 @@ function ProfileDrawer({
   fileInputRef,
   onFileChange,
   uploading,
+  notifPermission,
+  onRequestNotif,
 }: {
   user: UserProfile;
   onClose: () => void;
@@ -419,11 +421,16 @@ function ProfileDrawer({
   fileInputRef: React.RefObject<HTMLInputElement | null>;
   onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   uploading: boolean;
+  notifPermission: NotificationPermission;
+  onRequestNotif: () => void;
 }) {
   const [isEdit, setIsEdit] = useState(false);
   const [form, setForm] = useState({
     name: user.name,
     weight: user.weight,
+    age: user.age || 20,
+    exerciseTimeMinutes: user.exerciseTimeMinutes || 0,
+    isHighTemperature: user.isHighTemperature || false,
     dailyCaffeineLimit: user.dailyCaffeineLimit,
     dailySugarLimit: user.dailySugarLimit,
   });
@@ -604,6 +611,96 @@ function ProfileDrawer({
                 )}
               </div>
 
+              {/* Age & Exercise */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label
+                    className="text-[10px] font-bold uppercase tracking-widest ml-3"
+                    style={{ color: "var(--brown-muted)" }}
+                  >
+                    Tuổi 🎂
+                  </label>
+                  <input
+                    inputMode="numeric"
+                    value={form.age}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      setForm({ ...form, age: v === "" ? 0 : Number(v) });
+                    }}
+                    className={inputClass("age")}
+                    style={{ borderRadius: "1.2rem" }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label
+                    className="text-[10px] font-bold uppercase tracking-widest ml-3"
+                    style={{ color: "var(--brown-muted)" }}
+                  >
+                    Tập luyện (phút) ⚡
+                  </label>
+                  <input
+                    inputMode="numeric"
+                    value={form.exerciseTimeMinutes}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/\D/g, "");
+                      setForm({
+                        ...form,
+                        exerciseTimeMinutes: v === "" ? 0 : Number(v),
+                      });
+                    }}
+                    className={inputClass("exerciseTimeMinutes")}
+                    style={{ borderRadius: "1.2rem" }}
+                  />
+                </div>
+              </div>
+
+              {/* Special Conditions */}
+              <div className="space-y-2">
+                <label
+                  className="text-[10px] font-bold uppercase tracking-widest ml-3"
+                  style={{ color: "var(--brown-muted)" }}
+                >
+                  Tình trạng sức khỏe 🏥
+                </label>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    {
+                      key: "isHighTemperature",
+                      label: "Làm việc ngoài trời/Nóng ☀️",
+                    },
+                  ].map((item) => (
+                    <button
+                      key={item.key}
+                      type="button"
+                      onClick={() =>
+                        setForm({
+                          ...form,
+                          [item.key]: !form[item.key as keyof typeof form],
+                        })
+                      }
+                      className={`flex items-center justify-between px-4 py-2.5 rounded-2xl border-2 transition-all ${
+                        form[item.key as keyof typeof form]
+                          ? "border-[var(--peach-deep)] bg-rose-50 text-[var(--peach-deep)]"
+                          : "border-gray-100 bg-white text-[var(--brown-light)] hover:border-[var(--latte-deep)]"
+                      }`}
+                    >
+                      <span className="text-sm font-bold">{item.label}</span>
+                      <div
+                        className={`w-5 h-5 rounded-full flex items-center justify-center border ${
+                          form[item.key as keyof typeof form]
+                            ? "bg-[var(--peach-deep)] border-[var(--peach-deep)]"
+                            : "border-gray-300"
+                        }`}
+                      >
+                        {form[item.key as keyof typeof form] && (
+                          <Plus size={12} className="text-white rotate-45" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Limits */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -675,7 +772,6 @@ function ProfileDrawer({
             </div>
           ) : (
             <div className="space-y-3">
-              {/* Info rows */}
               {[
                 {
                   icon: Scale,
@@ -684,10 +780,30 @@ function ProfileDrawer({
                   emoji: "⚖️",
                 },
                 {
+                  icon: BookOpen,
+                  label: "Tuổi",
+                  val: `${user.age || "—"} tuổi`,
+                  emoji: "🎂",
+                },
+                {
+                  icon: Zap,
+                  label: "Tập luyện / ngày",
+                  val: `${user.exerciseTimeMinutes || 0} phút`,
+                  emoji: "⚡",
+                },
+                {
+                  icon: Sparkles,
+                  label: "Tình trạng",
+                  val: user.isHighTemperature
+                    ? "Làm việc nắng nóng"
+                    : "Bình thường",
+                  emoji: "🏥",
+                },
+                {
                   icon: Zap,
                   label: "Caffeine / ngày",
                   val: `${user.dailyCaffeineLimit} mg`,
-                  emoji: "⚡",
+                  emoji: "☕",
                 },
                 {
                   icon: Droplets,
@@ -695,9 +811,9 @@ function ProfileDrawer({
                   val: `${user.dailySugarLimit} g`,
                   emoji: "🍬",
                 },
-              ].map((row) => (
+              ].map((row, idx) => (
                 <div
-                  key={row.label}
+                  key={idx}
                   className="clay-card-sm flex items-center justify-between px-4 py-3.5"
                 >
                   <div className="flex items-center gap-2.5">
@@ -710,7 +826,7 @@ function ProfileDrawer({
                     </span>
                   </div>
                   <span
-                    className="font-bold text-sm"
+                    className="font-bold text-sm text-right max-w-[120px] truncate"
                     style={{ color: "var(--brown)" }}
                   >
                     {row.val}
@@ -719,11 +835,55 @@ function ProfileDrawer({
               ))}
 
               <button
+                onClick={onRequestNotif}
+                className="clay-card-sm flex items-center justify-between px-4 py-3.5 w-full mt-2"
+                style={{
+                  background:
+                    notifPermission === "granted"
+                      ? "rgba(255,209,220,0.3)"
+                      : undefined,
+                }}
+              >
+                <div className="flex items-center gap-2.5">
+                  <span className="text-base">🔔</span>
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: "var(--brown-light)" }}
+                  >
+                    Thông báo nhắc nhở
+                  </span>
+                </div>
+                <span
+                  className="font-bold text-sm"
+                  style={{
+                    color:
+                      notifPermission === "granted"
+                        ? "var(--peach-deep)"
+                        : "var(--brown-muted)",
+                  }}
+                >
+                  {notifPermission === "granted" ? "Đã bật ✨" : "Nhấn để bật"}
+                </span>
+              </button>
+
+              <button
                 onClick={() => setIsEdit(true)}
                 className="btn-secondary mt-2"
               >
                 <Edit2 size={15} /> Chỉnh sửa hồ sơ
               </button>
+
+              <div className="mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-100 space-y-2">
+                <p className="text-[10px] font-bold text-amber-600 uppercase tracking-widest">
+                  💡 Thời điểm vàng
+                </p>
+                <ul className="text-[11px] text-amber-800 space-y-1">
+                  <li>• Ngay sau khi thức dậy</li>
+                  <li>• 15-45 phút trước bữa ăn</li>
+                  <li>• 30-40 phút sau bữa ăn</li>
+                  <li>• Đầu giờ chiều & trước tập</li>
+                </ul>
+              </div>
             </div>
           )}
         </div>
@@ -742,6 +902,27 @@ export default function Dashboard() {
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
+
+  const [notifPermission, setNotifPermission] =
+    useState<NotificationPermission>("default");
+
+  useEffect(() => {
+    if (typeof Notification !== "undefined") {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
+
+  const requestPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    const res = await Notification.requestPermission();
+    setNotifPermission(res);
+    if (res === "granted") {
+      new Notification("🌸 Drink Tracker", {
+        body: "Thông báo đã được bật! Em sẽ nhắc chị uống nước nhé~",
+        icon: "/icons/icon-192x192.png",
+      });
+    }
+  };
 
   const fetchData = useCallback(async () => {
     try {
@@ -772,32 +953,90 @@ export default function Dashboard() {
   useEffect(() => {
     if (
       typeof Notification === "undefined" ||
-      Notification.permission !== "granted"
+      Notification.permission !== "granted" ||
+      !user
     )
       return;
 
-    // Check every 30 minutes
-    const interval = setInterval(
-      () => {
-        const lastDrink = todayLogs[0]; // Assuming todayLogs is sorted by most recent
-        if (!lastDrink) return;
+    const checkReminders = () => {
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      const lastDrink = todayLogs[0]; // Most recent is first
+      const waterGoalValue = calculateWaterGoal(user);
+      const totalWaterValue = todayLogs.reduce(
+        (s, l) => s + (l.volumeMl || 0),
+        0,
+      );
 
+      if (totalWaterValue >= waterGoalValue) return;
+
+      // 1. Golden times check
+      const goldenTimes = [
+        {
+          h: 7,
+          m: 30,
+          msg: "Chào buổi sáng Princess! Uống một cốc nước ấm ngay sau khi thức dậy để thanh lọc cơ thể nhé~ 🌸",
+        },
+        {
+          h: 11,
+          m: 30,
+          msg: "Sắp đến giờ cơm trưa rồi, chị uống một chút nước trước ăn 30 phút để tiêu hoá tốt hơn nha! ✨",
+        },
+        {
+          h: 13,
+          m: 30,
+          msg: "Đầu giờ chiều rồi, uống 200ml nước để duy trì tỉnh táo và làm việc hiệu quả nè! 💕",
+        },
+        {
+          h: 16,
+          m: 0,
+          msg: "Giờ trà chiều rồi! Thay vì trà sữa, chị hãy uống một ly nước lọc để da dẻ luôn mịn màng nhé~ 💧",
+        },
+        {
+          h: 20,
+          m: 0,
+          msg: "Buổi tối thư giãn, đừng quên bù thêm nước cho cơ thể trước khi đi ngủ nhé Princess! 🌙",
+        },
+      ];
+
+      const matchTime = goldenTimes.find(
+        (t) => t.h === currentHour && Math.abs(t.m - currentMinute) < 2,
+      );
+      if (matchTime) {
+        new Notification("🌸 Thời điểm vàng", {
+          body: matchTime.msg,
+          icon: "/icons/icon-192x192.png",
+        });
+        return;
+      }
+
+      // 2. Interval check (mỗi 1.5 giờ nếu chưa uống)
+      if (lastDrink) {
         const lastTime = new Date(lastDrink.createdAt).getTime();
-        const now = new Date().getTime();
-        const diffHours = (now - lastTime) / (1000 * 60 * 60);
+        const diffHours = (now.getTime() - lastTime) / (1000 * 60 * 60);
 
-        if (diffHours >= 2) {
-          new Notification("🌸 Coffee Sweetie", {
-            body: "Đã 2 tiếng rồi chị chưa uống nước đó, uống một chút nhé! 💕",
+        if (diffHours >= 1.5) {
+          const remaining = waterGoalValue - totalWaterValue;
+          new Notification("🌸 Híu nhắc chị nè", {
+            body: `Đã hơn 1.5 tiếng chị chưa uống nước rồi đó! Chị còn thiếu ${remaining}ml nữa, uống ngay 200ml nha~`,
             icon: "/icons/icon-192x192.png",
           });
         }
-      },
-      1000 * 60 * 30,
-    );
+      } else if (currentHour >= 8) {
+        // Nếu chưa uống gì cả ngày mà đã qua 8h sáng
+        new Notification("🌸 Bắt đầu ngày mới", {
+          body: "Chị ơi, hôm nay chưa thấy chị ghi nhật ký uống nước. Khởi đầu ngày mới với một ly nước lọc nhé! ✨",
+          icon: "/icons/icon-192x192.png",
+        });
+      }
+    };
+
+    const interval = setInterval(checkReminders, 1000 * 60 * 5); // Kiểm tra mỗi 5 phút
+    checkReminders(); // Chạy ngay khi mount
 
     return () => clearInterval(interval);
-  }, [todayLogs]);
+  }, [todayLogs, user]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -829,6 +1068,10 @@ export default function Dashboard() {
   /* computed totals */
   const totalCaffeine = todayLogs.reduce((s, l) => s + (l.caffeineMg || 0), 0);
   const totalSugar = todayLogs.reduce((s, l) => s + (l.sugarG || 0), 0);
+  const totalWater = todayLogs.reduce((s, l) => s + (l.volumeMl || 0), 0);
+
+  // Goal calculation based on new knowledge
+  const waterGoal = user ? calculateWaterGoal(user) : 2000;
 
   /* greeting */
   const hour = new Date().getHours();
@@ -936,11 +1179,19 @@ export default function Dashboard() {
             {/* Progress rings */}
             <section>
               <SectionTitle>Giới hạn hôm nay 💪</SectionTitle>
-              <div className="grid grid-cols-2 gap-4 mt-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-3">
+                <RingProgress
+                  value={totalWater}
+                  max={waterGoal}
+                  color="var(--peach-deep)"
+                  emoji="💧"
+                  label="Nước lọc"
+                  unit="ml"
+                />
                 <RingProgress
                   value={totalCaffeine}
                   max={user?.dailyCaffeineLimit ?? 400}
-                  color="var(--peach-deep)"
+                  color="var(--brown-light)"
                   emoji="⚡"
                   label="Caffeine"
                   unit="mg"
@@ -1066,19 +1317,29 @@ export default function Dashboard() {
               className="clay-card p-6 space-y-3"
               style={{ background: "rgba(255,209,220,0.25)" }}
             >
-              <p className="text-lg">🌸 Lời nhắc nhở</p>
+              <p className="text-lg">🌸 Lời nhắc từ Híu</p>
               <p
                 className="text-sm leading-relaxed italic"
                 style={{ color: "var(--brown-light)" }}
               >
-                "Uống đủ nước giúp cơ thể hấp thụ caffeine tốt hơn và giữ cho
-                làn da mịn màng~"
+                {(() => {
+                  const hour = new Date().getHours();
+                  if (hour < 9)
+                    return "Uống nước ngay sau khi thức dậy để bù nước sau đêm dài nhé! 🌅";
+                  if (hour < 12)
+                    return "Uống nước trước bữa ăn 30 phút giúp hỗ trợ tiêu hóa tốt hơn nè. 🍽️";
+                  if (hour < 15)
+                    return "Đầu giờ chiều là thời điểm vàng để uống nước giúp duy trì tỉnh táo đó! ⚡";
+                  if (hour < 18)
+                    return "Đừng đợi khát mới uống, hãy chia nhỏ lượng nước mỗi 1-2 giờ nha. 💧";
+                  return "Nếu tập luyện, đừng quên bù thêm 360ml cho mỗi 30 phút vận động Princess nhé! 🏃‍♀️";
+                })()}
               </p>
               <p
                 className="text-[10px] font-bold tracking-widest uppercase"
                 style={{ color: "var(--brown-muted)" }}
               >
-                Coffee Sweetie Tip ✨
+                Lời khuyên chuyên gia ✨
               </p>
             </div>
           </div>
@@ -1088,28 +1349,33 @@ export default function Dashboard() {
       {/* ─── Mobile Bottom Nav ────────────────────────────────*/}
       <nav className="bottom-nav">
         {[
-          { icon: LayoutDashboard, label: "Trang chủ", active: true },
-          { icon: BookOpen, label: "Nhật ký", active: false },
-          { icon: "fab", label: "", active: false }, // spacer for FAB
-          { icon: Heart, label: "Sức khỏe", active: false },
-          { icon: UserIcon, label: "Hồ sơ", active: false },
+          { icon: LayoutDashboard, label: "Trang chủ", href: "/" },
+          { icon: BookOpen, label: "Nhật ký", href: "/diary" },
+          { icon: "fab", label: "" }, // spacer for FAB
+          { icon: LucideMap, label: "Lộ trình", href: "/roadmap" },
+          {
+            icon: UserIcon,
+            label: "Hồ sơ",
+            onClick: () => setIsProfileOpen(true),
+          },
         ].map((item, i) => {
           if (item.icon === "fab") return <div key={i} className="w-16" />;
           const Icon = item.icon as React.ElementType;
+          const isActive = item.href === "/";
           return (
             <button
               key={i}
               onClick={
-                item.label === "Hồ sơ"
-                  ? () => setIsProfileOpen(true)
-                  : undefined
+                item.href
+                  ? () => (window.location.href = item.href)
+                  : item.onClick
               }
               className="flex flex-col items-center gap-1 px-3 py-1 transition-opacity"
               style={{
-                color: item.active ? "var(--peach-deep)" : "var(--brown-muted)",
+                color: isActive ? "var(--peach-deep)" : "var(--brown-muted)",
               }}
             >
-              <Icon size={20} strokeWidth={item.active ? 2.2 : 1.8} />
+              <Icon size={20} strokeWidth={isActive ? 2.2 : 1.8} />
               <span className="text-[9px] font-bold">{item.label}</span>
             </button>
           );
@@ -1135,6 +1401,8 @@ export default function Dashboard() {
             onClose={() => setIsProfileOpen(false)}
             onSaved={fetchData}
             onFileChange={handleFileUpload}
+            notifPermission={notifPermission}
+            onRequestNotif={requestPermission}
           />
         )}
       </AnimatePresence>

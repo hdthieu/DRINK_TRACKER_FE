@@ -48,6 +48,7 @@ export default function DrinkLogModal({
     caffeineMg: 0,
     sugarG: 0,
     calories: 0,
+    volumeMl: 250,
     price: 0,
     rating: 5,
     acidity: 0,
@@ -86,6 +87,7 @@ export default function DrinkLogModal({
       caffeineMg: type.caffeineMg || prev.caffeineMg,
       sugarG: type.sugarG || prev.sugarG,
       calories: type.calories || prev.calories,
+      volumeMl: type.volumeMl || prev.volumeMl || 250,
       acidity: type.acidity ?? prev.acidity,
       bitterness: type.bitterness ?? prev.bitterness,
       body: type.body ?? prev.body,
@@ -138,6 +140,7 @@ export default function DrinkLogModal({
           caffeineMg: 0,
           sugarG: 0,
           calories: 0,
+          volumeMl: 250,
           price: 0,
           rating: 5,
           acidity: 0,
@@ -531,7 +534,7 @@ export default function DrinkLogModal({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-3">
+                    <div className="grid grid-cols-2 gap-3">
                       <NutrientInput
                         icon={<Zap size={10} />}
                         label="Caffeine"
@@ -552,6 +555,13 @@ export default function DrinkLogModal({
                         unit="kcal"
                         value={form.calories}
                         onChange={(v) => updateField("calories", v)}
+                      />
+                      <NutrientInput
+                        icon={<Maximize size={10} />}
+                        label="Nước"
+                        unit="ml"
+                        value={form.volumeMl}
+                        onChange={(v) => updateField("volumeMl", v)}
                       />
                     </div>
 
