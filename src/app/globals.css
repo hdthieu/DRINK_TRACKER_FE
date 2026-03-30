@@ -436,3 +436,31 @@
     padding-right: 2rem;
   }
 }
+
+/* ── Dashboard Layout ──────────────────────────────────── */
+.dashboard-container {
+  min-height: 100vh;
+  background: var(--vanilla);
+  display: flex;
+}
+
+.dashboard-content {
+  flex: 1;
+  padding-top: 1.5rem;
+  padding-bottom: 7rem; /* Mobile nav space */
+  overflow-x: hidden;
+}
+
+@media (min-width: 1024px) {
+  .dashboard-content {
+    padding-left: 17rem; /* Sidebar width + gap */
+    padding-bottom: 2rem;
+  }
+}
+
+/* Sidebar item active state fix */
+.sidebar-item.active {
+  background: white;
+  color: var(--brown);
+  box-shadow: 0 8px 20px rgba(109, 76, 65, 0.08);
+}
