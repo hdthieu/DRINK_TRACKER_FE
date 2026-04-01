@@ -7,7 +7,15 @@ import { toast } from "sonner";
 import api from "@/lib/api";
 import { UserProfile, DrinkLog, UserRoadmap, InventoryItem } from "@/lib/types";
 import { useUser } from "@/hooks/useUser";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import DrinkLogModal from "@/components/DrinkLogModal";
+import {
+  Bell,
+  BellRing,
+  Smartphone,
+  ChevronRight,
+  ShieldCheck,
+} from "lucide-react";
 import {
   Utensils,
   AlertTriangle,
@@ -17,6 +25,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import Link from "next/link";
+import { LowStockFloatingAlert } from "@/components/LowStockFloatingAlert";
 
 /* ─── SVG Ring Progress ──────────────────────────────────── */
 function RingProgress({
@@ -250,6 +259,8 @@ export default function DashboardPage() {
   const [todayLogs, setTodayLogs] = useState<DrinkLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDrinkOpen, setIsAddDrinkOpen] = useState(false);
+  const { isSupported, permission, subscribe, testNotification } =
+    usePushNotifications();
   const [upcomingMeals, setUpcomingMeals] = useState<UserRoadmap[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
 
@@ -280,7 +291,7 @@ export default function DashboardPage() {
           i.quantityInBaseUnit === 0 ||
           (i.lowStockThreshold && i.quantityInBaseUnit <= i.lowStockThreshold),
       );
-      setLowStockItems(lowStock.slice(0, 3)); // Only show top 3 alerts
+      setLowStockItems(lowStock); // Keep full list for floating alert
     } catch {
       toast.error("Không thể tải thông tin");
     } finally {
@@ -442,7 +453,7 @@ export default function DashboardPage() {
                 <AlertTriangle size={18} /> Cảnh báo kho 🛒
               </h3>
               <div className="space-y-3">
-                {lowStockItems.map((item) => (
+                {lowStockItems.slice(0, 3).map((item) => (
                   <div
                     key={item.id}
                     className="flex items-center justify-between text-xs font-bold p-2.5 bg-white/60 rounded-2xl border border-white"
@@ -529,6 +540,58 @@ export default function DashboardPage() {
               💧
             </p>
           </div>
+
+          {isSupported && (
+            <div className="clay-card p-6 border-l-4 border-[var(--peach-deep)] bg-white space-y-4 shadow-xl">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-3 rounded-2xl ${permission === "granted" ? "bg-green-50 text-green-500" : "bg-rose-50 text-rose-500"}`}
+                >
+                  {permission === "granted" ? (
+                    <BellRing size={20} />
+                  ) : (
+                    <Bell size={20} />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-[var(--brown)]">
+                    Thông báo màn hình chờ 📲
+                  </h3>
+                  <p className="text-[10px] font-bold text-[var(--brown-muted)]">
+                    Báo động khi sắp hết lương thực
+                  </p>
+                </div>
+              </div>
+
+              {permission !== "granted" ? (
+                <button
+                  onClick={subscribe}
+                  className="w-full btn-primary !h-12 !text-[11px] !rounded-2xl flex items-center justify-center gap-2 group/btn"
+                >
+                  Bật ngay cho Princess 🌸
+                  <ChevronRight
+                    size={14}
+                    className="group-hover/btn:translate-x-1 transition-transform"
+                  />
+                </button>
+              ) : (
+                <div className="space-y-3">
+                  <div className="p-3 bg-green-50/50 rounded-xl border border-green-100 flex items-center gap-2">
+                    <ShieldCheck size={14} className="text-green-500" />
+                    <p className="text-[10px] font-black text-green-700">
+                      Đã kích hoạt bảo vệ 24/7 ✨
+                    </p>
+                  </div>
+                  <button
+                    onClick={testNotification}
+                    className="w-full h-11 rounded-2xl bg-white border border-[var(--latte)] text-[var(--brown-muted)] text-[10px] font-bold hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Smartphone size={14} /> Thử nghiệm thông báo
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </aside>
       </div>
 
@@ -537,6 +600,8 @@ export default function DashboardPage() {
         onClose={() => setIsAddDrinkOpen(false)}
         onSuccess={fetchData}
       />
+
+      <LowStockFloatingAlert items={lowStockItems} />
     </div>
   );
 }
