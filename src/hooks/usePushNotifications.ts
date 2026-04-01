@@ -35,10 +35,12 @@ export function usePushNotifications() {
 
     const subscribe = async () => {
         if (!VAPID_PUBLIC_KEY) {
+            toast.error('Chìa khóa bảo mật (VAPID) bị thiếu! Princess vui lòng kiểm tra Dashboard Vercel nhé 🔑');
             console.error('VAPID Public Key is missing! Check your .env setup.');
             return;
         }
         try {
+            toast.info('Đang kết nối với điện thoại của Princess... ✨');
             const registration = await navigator.serviceWorker.ready;
 
             // Check if there's already a subscription
@@ -48,7 +50,10 @@ export function usePushNotifications() {
                 // Request permission if not granted
                 const result = await Notification.requestPermission();
                 setPermission(result);
-                if (result !== 'granted') return;
+                if (result !== 'granted') {
+                    toast.error('Chị chưa cấp quyền hiện thông báo cho ứng dụng rồi ạ! 🌸');
+                    return;
+                }
 
                 subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
@@ -58,8 +63,10 @@ export function usePushNotifications() {
 
             // Send subscription to server
             await api.post('/notifications/subscribe', subscription);
+            toast.success('Kích hoạt báo động màn hình chờ thành công! 📲✨');
             console.log('Push subscription successful! ✨');
         } catch (error) {
+            toast.error('Có lỗi xảy ra! Princess thử dùng "Clear site data" rồi bấm lại nhé 🥂');
             console.error('Failed to subscribe to push notifications:', error);
         }
     };
