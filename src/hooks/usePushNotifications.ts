@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import api from '@/lib/api';
 import { toast } from 'sonner';
 
-const VAPID_PUBLIC_KEY = 'BPljFssnTrAvN-m0xqDrPM5hak7ESEgVXA35waeSg3GyxD1-eURp3usOp6-6UTcvmCk_FXMAetLoLAlmSXly6pE';
+const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 
 export function usePushNotifications() {
     const [isSupported, setIsSupported] = useState(false);
@@ -34,6 +34,10 @@ export function usePushNotifications() {
     };
 
     const subscribe = async () => {
+        if (!VAPID_PUBLIC_KEY) {
+            console.error('VAPID Public Key is missing! Check your .env setup.');
+            return;
+        }
         try {
             const registration = await navigator.serviceWorker.ready;
 
