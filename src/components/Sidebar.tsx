@@ -32,7 +32,6 @@ export function Sidebar({ user, onProfile, onAddDrink }: SidebarProps) {
     { icon: LucideMap, label: "Roadmap", href: "/roadmap" },
     { icon: Package, label: "Inventory", href: "/inventory" },
     { icon: Utensils, label: "Meal Plan", href: "/meal-plans" },
-    { icon: BookOpen, label: "Diary", href: "/diary" },
   ];
 
   const handleLogout = () => {
