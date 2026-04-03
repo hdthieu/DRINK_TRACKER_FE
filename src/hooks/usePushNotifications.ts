@@ -7,16 +7,40 @@ const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 export function usePushNotifications() {
     const [isSupported, setIsSupported] = useState(false);
     const [permission, setPermission] = useState<NotificationPermission>('default');
+    const [isLowStockEnabled, setIsLowStockEnabled] = useState(false);
 
     useEffect(() => {
         if (typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window) {
             setIsSupported(true);
             setPermission(Notification.permission);
+            // Fetch initial settings
+            fetchSettings();
             if (Notification.permission === 'granted') {
                 subscribe();
             }
         }
     }, []);
+
+    const fetchSettings = async () => {
+        try {
+            const res = await api.get('/notifications/settings');
+            setIsLowStockEnabled(res.data.isLowStockAlertEnabled);
+        } catch (e) {
+            console.error('Failed to fetch notification settings', e);
+        }
+    };
+
+    const toggleLowStockAlerts = async () => {
+        const newValue = !isLowStockEnabled;
+        try {
+            setIsLowStockEnabled(newValue);
+            await api.post('/notifications/settings', { enabled: newValue });
+            toast.success(newValue ? 'Đã bật báo động hết hàng! 🔔' : 'Đã tắt báo động hết hàng 🔕');
+        } catch (e) {
+            setIsLowStockEnabled(!newValue); // rollback
+            toast.error('Không thể cập nhật cài đặt');
+        }
+    };
 
     const urlBase64ToUint8Array = (base64String: string) => {
         const padding = '='.repeat((4 - base64String.length % 4) % 4);
@@ -80,5 +104,5 @@ export function usePushNotifications() {
         }
     };
 
-    return { isSupported, permission, subscribe, testNotification };
+    return { isSupported, permission, subscribe, testNotification, isLowStockEnabled, toggleLowStockAlerts };
 }

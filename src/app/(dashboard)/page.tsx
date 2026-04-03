@@ -259,8 +259,14 @@ export default function DashboardPage() {
   const [todayLogs, setTodayLogs] = useState<DrinkLog[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAddDrinkOpen, setIsAddDrinkOpen] = useState(false);
-  const { isSupported, permission, subscribe, testNotification } =
-    usePushNotifications();
+  const {
+    isSupported,
+    permission,
+    subscribe,
+    testNotification,
+    isLowStockEnabled,
+    toggleLowStockAlerts,
+  } = usePushNotifications();
   const [upcomingMeals, setUpcomingMeals] = useState<UserRoadmap[]>([]);
   const [lowStockItems, setLowStockItems] = useState<InventoryItem[]>([]);
 
@@ -588,6 +594,26 @@ export default function DashboardPage() {
                   >
                     <Smartphone size={14} /> Thử nghiệm thông báo
                   </button>
+
+                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                      <p className="text-[11px] font-bold text-[var(--brown)]">
+                        Tự động báo hết hàng
+                      </p>
+                      <p className="text-[9px] text-[var(--brown-muted)]">
+                        Cập nhật 1 lần mỗi ngày ✨
+                      </p>
+                    </div>
+                    <button
+                      onClick={toggleLowStockAlerts}
+                      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center ${isLowStockEnabled ? "bg-[var(--peach-deep)]" : "bg-gray-200"}`}
+                    >
+                      <motion.div
+                        animate={{ x: isLowStockEnabled ? 24 : 0 }}
+                        className="w-4 h-4 rounded-full bg-white shadow-sm"
+                      />
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
