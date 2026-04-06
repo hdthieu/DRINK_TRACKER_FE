@@ -42,7 +42,7 @@ export function MobileNav({
         </button>
       )}
 
-      <nav className="bottom-nav">
+      <nav className="bottom-nav !justify-between">
         {navItems.map((item, i) => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
@@ -50,7 +50,7 @@ export function MobileNav({
             <button
               key={i}
               onClick={() => router.push(item.href)}
-              className="flex flex-col items-center gap-1 px-3 py-1 transition-opacity"
+              className="flex-1 flex flex-col items-center gap-1 py-1 transition-opacity"
               style={{
                 color: isActive ? "var(--peach-deep)" : "var(--brown-muted)",
               }}
@@ -61,12 +61,9 @@ export function MobileNav({
           );
         })}
 
-        {/* Spacer for FAB if needed, or just the Profile button */}
-        <div className="w-12 h-1" />
-
         <button
           onClick={onProfile}
-          className="flex flex-col items-center gap-1 px-3 py-1 transition-opacity"
+          className="flex-1 flex flex-col items-center gap-1 py-1 transition-opacity"
           style={{ color: "var(--brown-muted)" }}
         >
           <UserIcon size={20} strokeWidth={1.8} />

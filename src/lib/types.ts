@@ -23,6 +23,11 @@ export interface UserProfile {
     exerciseTimeMinutes: number;
     isHighTemperature: boolean;
     imageUrl?: string;
+    dailyWaterGoal?: number;
+    isWaterReminderEnabled: boolean;
+    reminderStartTime: string;
+    reminderEndTime: string;
+    reminderInterval: number;
 }
 
 export interface DrinkLog {
@@ -73,14 +78,14 @@ export interface MealPlan {
 
 export interface UserRoadmap {
     id: string;
-    time: string; // "HH:mm"
+    time: string;
     activityName: string;
     description?: string;
     activityType: ActivityType;
     mealPlanId?: string;
     mealPlan?: MealPlan;
     isCompleted: boolean;
-    date: string; // YYYY-MM-DD
+    date: string;
 }
 
 export interface CreateRoadmapDto {

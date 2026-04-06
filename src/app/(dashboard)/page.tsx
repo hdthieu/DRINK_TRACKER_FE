@@ -23,6 +23,7 @@ import {
   ShoppingBag,
   Clock,
   Sparkles,
+  Plus,
 } from "lucide-react";
 import Link from "next/link";
 import { LowStockFloatingAlert } from "@/components/LowStockFloatingAlert";
@@ -188,22 +189,35 @@ function DrinkCard({ log }: { log: DrinkLog }) {
 }
 
 /* ─── Helpers ────────────────────────────────────────────── */
-function calculateWaterGoal(user: UserProfile): number {
-  const age = user.age || 20;
-  const weight = user.weight || 60;
-  if (age < 0.5) return 0;
-  if (age < 1) return 100;
-  if (age < 4) return 1100;
-  if (age < 9) return 1350;
-  if (age < 14) return 1750;
-  if (age >= 60) return 1750;
-  let goalLiters = weight * 0.03;
-  if (user.exerciseTimeMinutes > 0) {
-    goalLiters += (user.exerciseTimeMinutes / 30) * 0.36;
-  }
-  let goalMl = goalLiters * 1000;
-  if (user.isHighTemperature) goalMl += 600;
-  return Math.round(goalMl);
+function getHydrationStatus(
+  current: number,
+  target: number,
+): { text: string; emoji: string } {
+  const pct = target > 0 ? (current / target) * 100 : 0;
+  if (pct === 0)
+    return {
+      text: "Chào ngày mới lộng lẫy! Chị hãy uống ly nước đầu tiên nhé 💧✨",
+      emoji: "🌸",
+    };
+  if (pct < 30)
+    return {
+      text: "Khởi đầu tuyệt vời! Chị hãy uống thêm chút nước để tỉnh táo hơn ạ 🥂",
+      emoji: "✨",
+    };
+  if (pct < 70)
+    return {
+      text: "Tiến độ rất tốt ạ! Princess hãy tiếp tục duy trì vẻ rạng rỡ nhé ✨💎",
+      emoji: "🦋",
+    };
+  if (pct < 100)
+    return {
+      text: "Sắp đạt mục tiêu rồi! Chỉ còn một chút xíu nữa thôi Princess ơi! 💖",
+      emoji: "🥂",
+    };
+  return {
+    text: "Tuyệt vời! Chị đã hoàn thành mục tiêu sức khỏe hôm nay rồi ạ! 👑🥂🎉",
+    emoji: "🎊",
+  };
 }
 
 /* ─── Empty State ────────────────────────────────────────── */
@@ -312,10 +326,22 @@ export default function DashboardPage() {
     return () => window.removeEventListener("refreshLogs", handleRefresh);
   }, [fetchData]);
 
+  // --- AUTO-SUBSCRIBE ON LOGIN --- ✨🥂
+  useEffect(() => {
+    if (isSupported && permission === "default" && !loading) {
+      // Small delay to ensure UI is ready before showing native prompt
+      const timer = setTimeout(() => {
+        subscribe();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [isSupported, permission, subscribe, loading]);
+
   const totalCaffeine = todayLogs.reduce((s, l) => s + (l.caffeineMg || 0), 0);
   const totalSugar = todayLogs.reduce((s, l) => s + (l.sugarG || 0), 0);
   const totalWater = todayLogs.reduce((s, l) => s + (l.volumeMl || 0), 0);
-  const waterGoal = user ? calculateWaterGoal(user) : 2000;
+  const waterGoal = user?.dailyWaterGoal ?? 2000;
+  const hydrationStatus = getHydrationStatus(totalWater, waterGoal);
 
   const hour = new Date().getHours();
   const greeting =
@@ -354,20 +380,55 @@ export default function DashboardPage() {
           >
             {greeting} ✨
           </p>
-          <h1
-            className="text-3xl font-black leading-tight tracking-tight"
-            style={{ color: "var(--brown)" }}
-          >
-            {user?.name ?? "Princess"}
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1
+              className="text-3xl font-black leading-tight tracking-tight"
+              style={{ color: "var(--brown)" }}
+            >
+              {user?.name ?? "Princess"}
+            </h1>
+            <h1
+              className="text-3xl font-black leading-tight tracking-tight"
+              style={{ color: "var(--brown)" }}
+            >
+              {user?.name ?? "Princess"}
+            </h1>
+          </div>
         </div>
       </header>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-8">
           <section>
-            <SectionTitle>Giới hạn hôm nay 💪</SectionTitle>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-4">
+            <div className="flex items-center justify-between mb-4">
+              <SectionTitle>Giới hạn hôm nay 💪</SectionTitle>
+              <motion.div
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-2xl bg-white/40 border border-white/60 shadow-sm"
+              >
+                <span className="text-sm">{hydrationStatus.emoji}</span>
+                <p
+                  className="text-[11px] font-bold leading-tight"
+                  style={{ color: "var(--brown)" }}
+                >
+                  {hydrationStatus.text}
+                </p>
+              </motion.div>
+            </div>
+
+            {/* Mobile Status Message ✨ */}
+            <div className="sm:hidden mb-4 p-4 rounded-2xl bg-white/40 border border-white/60 shadow-sm flex items-center gap-3">
+              <span className="text-xl">{hydrationStatus.emoji}</span>
+              <p
+                className="text-[11px] font-bold leading-tight"
+                style={{ color: "var(--brown)" }}
+              >
+                {hydrationStatus.text}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <RingProgress
                 value={totalWater}
                 max={waterGoal}
@@ -546,78 +607,6 @@ export default function DashboardPage() {
               💧
             </p>
           </div>
-
-          {isSupported && (
-            <div className="clay-card p-6 border-l-4 border-[var(--peach-deep)] bg-white space-y-4 shadow-xl">
-              <div className="flex items-center gap-3">
-                <div
-                  className={`p-3 rounded-2xl ${permission === "granted" ? "bg-green-50 text-green-500" : "bg-rose-50 text-rose-500"}`}
-                >
-                  {permission === "granted" ? (
-                    <BellRing size={20} />
-                  ) : (
-                    <Bell size={20} />
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-black text-sm text-[var(--brown)]">
-                    Thông báo màn hình chờ 📲
-                  </h3>
-                  <p className="text-[10px] font-bold text-[var(--brown-muted)]">
-                    Báo động khi sắp hết lương thực
-                  </p>
-                </div>
-              </div>
-
-              {permission !== "granted" ? (
-                <button
-                  onClick={subscribe}
-                  className="w-full btn-primary !h-12 !text-[11px] !rounded-2xl flex items-center justify-center gap-2 group/btn"
-                >
-                  Bật ngay cho Princess 🌸
-                  <ChevronRight
-                    size={14}
-                    className="group-hover/btn:translate-x-1 transition-transform"
-                  />
-                </button>
-              ) : (
-                <div className="space-y-3">
-                  <div className="p-3 bg-green-50/50 rounded-xl border border-green-100 flex items-center gap-2">
-                    <ShieldCheck size={14} className="text-green-500" />
-                    <p className="text-[10px] font-black text-green-700">
-                      Đã kích hoạt bảo vệ 24/7 ✨
-                    </p>
-                  </div>
-                  <button
-                    onClick={testNotification}
-                    className="w-full h-11 rounded-2xl bg-white border border-[var(--latte)] text-[var(--brown-muted)] text-[10px] font-bold hover:bg-gray-50 transition-all flex items-center justify-center gap-2"
-                  >
-                    <Smartphone size={14} /> Thử nghiệm thông báo
-                  </button>
-
-                  <div className="pt-2 border-t border-gray-100 flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] font-bold text-[var(--brown)]">
-                        Tự động báo hết hàng
-                      </p>
-                      <p className="text-[9px] text-[var(--brown-muted)]">
-                        Cập nhật 1 lần mỗi ngày ✨
-                      </p>
-                    </div>
-                    <button
-                      onClick={toggleLowStockAlerts}
-                      className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 flex items-center ${isLowStockEnabled ? "bg-[var(--peach-deep)]" : "bg-gray-200"}`}
-                    >
-                      <motion.div
-                        animate={{ x: isLowStockEnabled ? 24 : 0 }}
-                        className="w-4 h-4 rounded-full bg-white shadow-sm"
-                      />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
         </aside>
       </div>
 
@@ -625,7 +614,25 @@ export default function DashboardPage() {
         isOpen={isAddDrinkOpen}
         onClose={() => setIsAddDrinkOpen(false)}
         onSuccess={fetchData}
+        dailyWaterGoal={waterGoal}
+        currentWater={totalWater}
       />
+
+      {/* --- ROYAL FLOATING ACTION BUTTON --- ✨🥂 */}
+      <motion.button
+        whileHover={{ scale: 1.1, rotate: 90 }}
+        whileTap={{ scale: 0.9 }}
+        onClick={() => setIsAddDrinkOpen(true)}
+        className="fixed bottom-24 right-6 w-16 h-16 rounded-full bg-gradient-to-br from-[var(--peach-deep)] to-rose-400 text-white shadow-2xl flex items-center justify-center z-40 border-4 border-white/40 backdrop-blur-sm"
+        style={{
+          boxShadow: "0 15px 35px -5px rgba(251, 113, 133, 0.5)",
+        }}
+        initial={{ opacity: 0, y: 100 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 1, type: "spring", stiffness: 260, damping: 20 }}
+      >
+        <Plus size={32} strokeWidth={3} />
+      </motion.button>
 
       <LowStockFloatingAlert items={lowStockItems} />
     </div>

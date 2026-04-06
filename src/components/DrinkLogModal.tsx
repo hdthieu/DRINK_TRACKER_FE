@@ -28,12 +28,16 @@ interface DrinkLogModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
+  dailyWaterGoal?: number;
+  currentWater?: number;
 }
 
 export default function DrinkLogModal({
   isOpen,
   onClose,
   onSuccess,
+  dailyWaterGoal = 2000,
+  currentWater = 0,
 }: DrinkLogModalProps) {
   const [loading, setLoading] = useState(false);
   const [drinkTypes, setDrinkTypes] = useState<any[]>([]);
@@ -107,7 +111,7 @@ export default function DrinkLogModal({
     fd.append("file", file);
 
     try {
-      const res = await api.post("/drinklog/upload-image", fd, {
+      const res = await api.post("/drink-log/upload-image", fd, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       const imageUrl = res.data?.data?.imageUrl || res.data?.imageUrl;
@@ -133,9 +137,29 @@ export default function DrinkLogModal({
 
     setLoading(true);
     try {
-      const res = await api.post("/drinklog", form);
+      const res = await api.post("/drink-log", form);
       if (res.status === 201 || res.status === 200) {
-        toast.success("Đã thêm đồ uống thành công!");
+        const newTotal = currentWater + form.volumeMl;
+        const missing = Math.max(0, dailyWaterGoal - newTotal);
+
+        toast.success(
+          <div className="flex flex-col gap-0.5">
+            <p className="font-black text-sm text-amber-900 flex items-center gap-1">
+              Bạn thật tuyệt vời! 💖
+            </p>
+            <p className="text-[10px] font-bold opacity-80">
+              Vừa uống:{" "}
+              <span className="text-[var(--brown)]">{form.volumeMl}ml</span>.
+              Tổng cộng: {newTotal}ml.
+            </p>
+            <p className="text-[10px] font-black text-rose-500 italic mt-0.5">
+              {missing > 0
+                ? `Chỉ còn thiếu ${missing}ml nữa là rạng rỡ nhất ạ! 💖`
+                : "Mục tiêu hôm nay đã hoàn thành xuất sắc! 👑🎉"}
+            </p>
+          </div>,
+        );
+
         onSuccess();
         onClose();
         setForm({
