@@ -12,6 +12,8 @@ import {
   Scale,
   Zap,
   Coffee,
+  Clock,
+  BellRing,
 } from "lucide-react";
 import { UserProfile } from "@/lib/types";
 import { toast } from "sonner";
@@ -43,6 +45,9 @@ export function ProfileDrawer({
     isHighTemperature: user.isHighTemperature || false,
     dailyCaffeineLimit: user.dailyCaffeineLimit,
     dailySugarLimit: user.dailySugarLimit,
+    reminderStartTime: user.reminderStartTime || "08:00",
+    reminderEndTime: user.reminderEndTime || "22:00",
+    reminderInterval: user.reminderInterval || 120,
   });
   const [saving, setSaving] = useState(false);
 
@@ -81,10 +86,22 @@ export function ProfileDrawer({
       icon: Coffee,
     },
     {
-      label: "Giới hạn Đường",
-      val: `${user.dailySugarLimit} g`,
-      emoji: "🍬",
-      icon: Coffee,
+      label: "Giờ bắt đầu",
+      val: user.reminderStartTime || "08:00",
+      emoji: "🌅",
+      icon: Clock,
+    },
+    {
+      label: "Giờ kết thúc",
+      val: user.reminderEndTime || "22:00",
+      emoji: "🌙",
+      icon: Clock,
+    },
+    {
+      label: "Tần suất nhắc",
+      val: `${user.reminderInterval || 120} phút`,
+      emoji: "🔔",
+      icon: BellRing,
     },
   ];
 
@@ -202,6 +219,56 @@ export function ProfileDrawer({
                     type="number"
                     value={form.age}
                     onChange={(e) => setForm({ ...form, age: +e.target.value })}
+                    className="w-full h-12 bg-white rounded-2xl border-none shadow-inner px-4 font-bold text-[var(--brown)] focus:ring-2 focus:ring-[var(--peach-deep)] transition-all"
+                  />
+                </div>
+              </div>
+
+              {/* --- ROYAL HYDRATION WINDOW --- ✨🥂 */}
+              <div className="pt-2">
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--peach-deep)] mb-3 flex items-center gap-2">
+                  <Clock size={12} /> Lộ trình Thủy hợp
+                </p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--brown-muted)] ml-1">
+                      Giờ thức dậy 🌅
+                    </label>
+                    <input
+                      type="time"
+                      value={form.reminderStartTime}
+                      onChange={(e) =>
+                        setForm({ ...form, reminderStartTime: e.target.value })
+                      }
+                      className="w-full h-12 bg-white rounded-2xl border-none shadow-inner px-4 font-bold text-[var(--brown)] focus:ring-2 focus:ring-[var(--peach-deep)] transition-all"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--brown-muted)] ml-1">
+                      Giờ đi ngủ 🌙
+                    </label>
+                    <input
+                      type="time"
+                      value={form.reminderEndTime}
+                      onChange={(e) =>
+                        setForm({ ...form, reminderEndTime: e.target.value })
+                      }
+                      className="w-full h-12 bg-white rounded-2xl border-none shadow-inner px-4 font-bold text-[var(--brown)] focus:ring-2 focus:ring-[var(--peach-deep)] transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 mt-4">
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-[var(--brown-muted)] ml-1">
+                    Tần suất nhắc nhở (phút) 🔔
+                  </label>
+                  <input
+                    type="number"
+                    step="15"
+                    value={form.reminderInterval}
+                    onChange={(e) =>
+                      setForm({ ...form, reminderInterval: +e.target.value })
+                    }
                     className="w-full h-12 bg-white rounded-2xl border-none shadow-inner px-4 font-bold text-[var(--brown)] focus:ring-2 focus:ring-[var(--peach-deep)] transition-all"
                   />
                 </div>
