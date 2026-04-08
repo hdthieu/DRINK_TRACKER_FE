@@ -380,19 +380,14 @@ export default function DashboardPage() {
           >
             {greeting} ✨
           </p>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
             <h1
               className="text-3xl font-black leading-tight tracking-tight"
               style={{ color: "var(--brown)" }}
             >
               {user?.name ?? "Princess"}
             </h1>
-            <h1
-              className="text-3xl font-black leading-tight tracking-tight"
-              style={{ color: "var(--brown)" }}
-            >
-              {user?.name ?? "Princess"}
-            </h1>
+            <span className="text-2xl animate-pulse">✨</span>
           </div>
         </div>
       </header>

@@ -227,7 +227,7 @@ export function ProfileDrawer({
               {/* --- ROYAL HYDRATION WINDOW --- ✨🥂 */}
               <div className="pt-2">
                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--peach-deep)] mb-3 flex items-center gap-2">
-                  <Clock size={12} /> Lộ trình Thủy hợp
+                  <Clock size={12} /> Setting thời gian nhắc nhở
                 </p>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
